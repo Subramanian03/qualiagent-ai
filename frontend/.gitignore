@@ -1,0 +1,45 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+frontend/node_modules/
+runner/node_modules/
+
+# Frontend builds
+frontend/dist/
+dist/
+
+# Playwright evidence/generated files
+runner/evidence/
+runner/test-results/
+runner/playwright-report/
+runner/tests/generated/
+
+# Local database/storage
+storage/*.db
+storage/*.sqlite
+storage/*.sqlite3
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

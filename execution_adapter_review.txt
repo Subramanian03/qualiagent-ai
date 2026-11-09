@@ -1,0 +1,1382 @@
+
+===== backend\services\execution_runner_service.py =====
+
+from sqlalchemy.orm import Session
+
+from backend.db.automation_model import (
+    AutomationScriptDB,
+)
+from backend.db.execution_model import (
+    ExecutionDB,
+)
+from backend.services.execution_environment_service import (
+    get_environment_secrets,
+    redact_text,
+)
+from backend.services.execution_service import (
+    mark_execution_error,
+    mark_execution_failed,
+    mark_execution_passed,
+    mark_execution_running,
+)
+from backend.services.playwright_runner_service import (
+    run_playwright,
+)
+
+
+def run_execution(
+    db: Session,
+    execution: ExecutionDB,
+    automation: AutomationScriptDB,
+    runtime_environment: dict[str, str]
+):
+
+    mark_execution_running(
+        db,
+        execution
+    )
+
+    secrets = get_environment_secrets(
+        runtime_environment
+    )
+
+    result = run_playwright(
+        execution_id=execution.id,
+        automation_code=automation.code,
+        runtime_environment=(
+            runtime_environment
+        )
+    )
+
+    safe_stdout = redact_text(
+        result.stdout,
+        secrets
+    )
+
+    safe_stderr = redact_text(
+        result.stderr,
+        secrets
+    )
+
+    safe_infrastructure_error = redact_text(
+        result.infrastructure_error,
+        secrets
+    )
+
+
+    if result.infrastructure_error:
+
+        return mark_execution_error(
+            db=db,
+            execution=execution,
+            completed_at=(
+                result.completed_at
+            ),
+            duration_ms=(
+                result.duration_ms
+            ),
+            error_message=(
+                safe_infrastructure_error
+            ),
+            stdout=safe_stdout,
+            stderr=safe_stderr,
+            screenshot_path=(
+                result.screenshot_path
+            ),
+            trace_path=(
+                result.trace_path
+            )
+        )
+
+
+    if result.exit_code == 0:
+
+        return mark_execution_passed(
+            db=db,
+            execution=execution,
+            completed_at=(
+                result.completed_at
+            ),
+            duration_ms=(
+                result.duration_ms
+            ),
+            exit_code=0,
+            stdout=safe_stdout,
+            stderr=safe_stderr,
+            screenshot_path=(
+                result.screenshot_path
+            ),
+            trace_path=(
+                result.trace_path
+            )
+        )
+
+
+    return mark_execution_failed(
+        db=db,
+        execution=execution,
+        completed_at=(
+            result.completed_at
+        ),
+        duration_ms=(
+            result.duration_ms
+        ),
+        exit_code=(
+            result.exit_code
+            if result.exit_code is not None
+            else -1
+        ),
+        stdout=safe_stdout,
+        stderr=safe_stderr,
+        screenshot_path=(
+            result.screenshot_path
+        ),
+        trace_path=(
+            result.trace_path
+        )
+    )
+
+===== backend\services\playwright_runner_service.py =====
+
+import os
+import shutil
+import subprocess
+
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+
+
+PROJECT_ROOT = (
+    Path(__file__)
+    .resolve()
+    .parents[2]
+)
+
+
+RUNNER_ROOT = (
+    PROJECT_ROOT /
+    "runner"
+).resolve()
+
+
+GENERATED_TEST_ROOT = (
+    RUNNER_ROOT /
+    "tests" /
+    "generated"
+).resolve()
+
+
+EVIDENCE_ROOT = (
+    RUNNER_ROOT /
+    "evidence"
+).resolve()
+
+
+PLAYWRIGHT_TIMEOUT_SECONDS = 180
+
+
+@dataclass
+class PlaywrightRunResult:
+
+    exit_code: int | None
+
+    stdout: str
+
+    stderr: str
+
+    infrastructure_error: str | None
+
+    started_at: datetime
+
+    completed_at: datetime
+
+    duration_ms: int
+
+    screenshot_path: str | None
+
+    trace_path: str | None
+
+
+def run_playwright(
+    *,
+    execution_id: int,
+    automation_code: str,
+    runtime_environment:
+        dict[str, str]
+) -> PlaywrightRunResult:
+
+    started_at = datetime.utcnow()
+
+
+    GENERATED_TEST_ROOT.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+
+    execution_evidence_root = (
+        EVIDENCE_ROOT /
+        f"execution-{execution_id}"
+    )
+
+
+    execution_evidence_root.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+
+    generated_test_path = (
+        GENERATED_TEST_ROOT /
+        f"execution-{execution_id}.spec.js"
+    )
+
+
+    screenshot_path = (
+        execution_evidence_root /
+        "failure.png"
+    )
+
+
+    trace_path = (
+        execution_evidence_root /
+        "trace.zip"
+    )
+
+
+    try:
+
+        generated_test_path.write_text(
+            automation_code,
+            encoding="utf-8"
+        )
+
+    except OSError:
+
+        completed_at = datetime.utcnow()
+
+        return PlaywrightRunResult(
+            exit_code=None,
+            stdout="",
+            stderr="",
+            infrastructure_error=(
+                "Unable to write the generated "
+                "Playwright test file"
+            ),
+            started_at=started_at,
+            completed_at=completed_at,
+            duration_ms=calculate_duration_ms(
+                started_at,
+                completed_at
+            ),
+            screenshot_path=None,
+            trace_path=None
+        )
+
+
+    process_environment = {
+        **os.environ,
+
+        **{
+            key: str(value)
+            for key, value
+            in runtime_environment.items()
+        },
+
+        "QUALIAGENT_EXECUTION_ID":
+            str(execution_id),
+
+        "QUALIAGENT_SCREENSHOT_PATH":
+            str(screenshot_path),
+
+        "QUALIAGENT_TRACE_PATH":
+            str(trace_path),
+    }
+
+
+    # Resolve the Windows npx command.
+    npx_command = (
+        shutil.which(
+            "npx.cmd"
+        )
+        or shutil.which(
+            "npx"
+        )
+    )
+
+
+    if not npx_command:
+
+        completed_at = datetime.utcnow()
+
+        return PlaywrightRunResult(
+            exit_code=None,
+            stdout="",
+            stderr="",
+            infrastructure_error=(
+                "Node.js npx was not found "
+                "in the backend process PATH"
+            ),
+            started_at=started_at,
+            completed_at=completed_at,
+            duration_ms=calculate_duration_ms(
+                started_at,
+                completed_at
+            ),
+            screenshot_path=None,
+            trace_path=None
+        )
+
+
+    relative_test_path = (
+    generated_test_path
+    .relative_to(
+        RUNNER_ROOT
+    )
+)
+
+
+    command = [
+    npx_command,
+    "playwright",
+    "test",
+    relative_test_path.as_posix(),
+    "--reporter=line",
+    "--trace=on",
+    "--output",
+    str(execution_evidence_root),
+]
+
+
+    try:
+
+        completed = subprocess.run(
+            command,
+            cwd=str(RUNNER_ROOT),
+            env=process_environment,
+            capture_output=True,
+            text=True,
+            timeout=(
+                PLAYWRIGHT_TIMEOUT_SECONDS
+            ),
+            shell=False
+        )
+
+
+        completed_at = datetime.utcnow()
+
+
+        detected_trace_path = (
+            find_trace_file(
+                execution_evidence_root,
+                RUNNER_ROOT
+            )
+        )
+
+
+        detected_screenshot_path = (
+            find_screenshot_file(
+                execution_evidence_root,
+                RUNNER_ROOT
+            )
+        )
+
+
+        return PlaywrightRunResult(
+            exit_code=(
+                completed.returncode
+            ),
+            stdout=(
+                completed.stdout or ""
+            ),
+            stderr=(
+                completed.stderr or ""
+            ),
+            infrastructure_error=None,
+            started_at=started_at,
+            completed_at=completed_at,
+            duration_ms=calculate_duration_ms(
+                started_at,
+                completed_at
+            ),
+            screenshot_path=(
+                str(detected_screenshot_path)
+                if detected_screenshot_path
+                else None
+            ),
+            trace_path=(
+                str(detected_trace_path)
+                if detected_trace_path
+                else None
+            )
+        )
+
+
+    except subprocess.TimeoutExpired as exc:
+
+        completed_at = datetime.utcnow()
+
+
+        return PlaywrightRunResult(
+            exit_code=None,
+            stdout=normalise_subprocess_output(
+                exc.stdout
+            ),
+            stderr=normalise_subprocess_output(
+                exc.stderr
+            ),
+            infrastructure_error=(
+                "Playwright execution exceeded "
+                f"{PLAYWRIGHT_TIMEOUT_SECONDS} "
+                "seconds"
+            ),
+            started_at=started_at,
+            completed_at=completed_at,
+            duration_ms=calculate_duration_ms(
+                started_at,
+                completed_at
+            ),
+            screenshot_path=(
+                str(screenshot_path)
+                if screenshot_path.is_file()
+                else None
+            ),
+            trace_path=(
+                str(trace_path)
+                if trace_path.is_file()
+                else None
+            )
+        )
+
+
+    except FileNotFoundError:
+
+        completed_at = datetime.utcnow()
+
+
+        return PlaywrightRunResult(
+            exit_code=None,
+            stdout="",
+            stderr="",
+            infrastructure_error=(
+                "The Node.js npx command was "
+                "not found. Confirm Node.js and "
+                "the Playwright runner "
+                "dependencies are installed."
+            ),
+            started_at=started_at,
+            completed_at=completed_at,
+            duration_ms=calculate_duration_ms(
+                started_at,
+                completed_at
+            ),
+            screenshot_path=None,
+            trace_path=None
+        )
+
+
+    except OSError:
+
+        completed_at = datetime.utcnow()
+
+
+        return PlaywrightRunResult(
+            exit_code=None,
+            stdout="",
+            stderr="",
+            infrastructure_error=(
+                "The Playwright process could "
+                "not be started"
+            ),
+            started_at=started_at,
+            completed_at=completed_at,
+            duration_ms=calculate_duration_ms(
+                started_at,
+                completed_at
+            ),
+            screenshot_path=None,
+            trace_path=None
+        )
+
+
+def calculate_duration_ms(
+    started_at: datetime,
+    completed_at: datetime
+) -> int:
+
+    duration = (
+        completed_at -
+        started_at
+    )
+
+    return max(
+        0,
+        int(
+            duration.total_seconds()
+            * 1000
+        )
+    )
+
+
+def normalise_subprocess_output(
+    value
+) -> str:
+
+    if value is None:
+        return ""
+
+
+    if isinstance(
+        value,
+        bytes
+    ):
+
+        return value.decode(
+            "utf-8",
+            errors="replace"
+        )
+
+
+    return str(
+        value
+    )
+
+
+def find_trace_file(
+    execution_evidence_root: Path,
+    runner_root: Path
+) -> Path | None:
+
+    candidates = list(
+        execution_evidence_root.rglob(
+            "trace.zip"
+        )
+    )
+
+    valid_candidates = [
+        path
+        for path in candidates
+        if path.is_file()
+    ]
+
+    if not valid_candidates:
+        return None
+
+    return max(
+        valid_candidates,
+        key=lambda path:
+            path.stat().st_mtime
+    )
+def find_screenshot_file(
+    execution_evidence_root: Path,
+    runner_root: Path
+) -> Path | None:
+
+    candidates = list(
+        execution_evidence_root.rglob(
+            "*.png"
+        )
+    )
+
+    valid_candidates = [
+        path
+        for path in candidates
+        if path.is_file()
+    ]
+
+    if not valid_candidates:
+        return None
+
+    return max(
+        valid_candidates,
+        key=lambda path:
+            path.stat().st_mtime
+    )
+
+===== backend\services\execution_runtime_service.py =====
+
+from backend.models.execution_runtime import (
+    ExecutionRuntimeRequest,
+)
+
+from backend.services.automation_runtime_input_service import (
+    get_persisted_input_schema,
+    validate_runtime_inputs,
+)
+
+
+def prepare_execution_runtime(
+    *,
+    project,
+    requirement,
+    scenario,
+    test_case,
+    automation,
+    request: ExecutionRuntimeRequest
+):
+
+    project_engine = str(
+        project.automation_engine or ""
+    ).strip().lower()
+
+
+    automation_engine = str(
+        automation.engine or
+        automation.framework or
+        ""
+    ).strip().lower()
+
+
+    if project_engine != "playwright":
+
+        raise ValueError(
+            "Automated execution for "
+            f"'{project_engine}' projects "
+            "is not available yet"
+        )
+
+
+    if automation_engine != project_engine:
+
+        raise ValueError(
+            "Automation engine does not match "
+            "the Project automation engine"
+        )
+
+    automation_status = str(
+        getattr(
+            automation,
+            "status",
+            ""
+        )
+    ).strip().lower()
+
+
+    if automation_status != "ready":
+
+        raise ValueError(
+            "Automation must be READY "
+            "before execution"
+        )
+
+
+    review_status = str(
+        getattr(
+            test_case,
+            "review_status",
+            ""
+        )
+    ).strip().lower()
+
+
+    if review_status != "approved":
+
+        raise ValueError(
+            "Parent Test Case must remain "
+            "approved before execution"
+        )
+
+
+    if not bool(
+        getattr(
+            test_case,
+            "automation_candidate",
+            False
+        )
+    ):
+
+        raise ValueError(
+            "Parent Test Case is not an "
+            "automation candidate"
+        )
+
+
+    if (
+        getattr(
+            scenario,
+            "requirement_db_id",
+            None
+        ) != getattr(
+            requirement,
+            "id",
+            None
+        )
+    ):
+
+        raise ValueError(
+            "Scenario and Requirement "
+            "traceability is inconsistent"
+        )
+
+
+    if (
+        getattr(
+            test_case,
+            "requirement_db_id",
+            None
+        ) != getattr(
+            requirement,
+            "id",
+            None
+        )
+    ):
+
+        raise ValueError(
+            "Test Case and Requirement "
+            "traceability is inconsistent"
+        )
+
+
+    if (
+        getattr(
+            test_case,
+            "test_scenario_db_id",
+            None
+        ) != getattr(
+            scenario,
+            "id",
+            None
+        )
+    ):
+
+        raise ValueError(
+            "Test Case and Scenario "
+            "traceability is inconsistent"
+        )
+
+
+    input_schema = (
+        get_persisted_input_schema(
+            automation
+        )
+    )
+
+
+    validated_inputs = (
+        validate_runtime_inputs(
+            input_schema,
+            request
+        )
+    )
+
+
+    return (
+        input_schema,
+        validated_inputs
+    )
+
+def build_execution_environment(
+    validated_inputs
+) -> dict[str, str]:
+
+    environment = {}
+
+
+    for key, value in (
+        validated_inputs
+        .non_secret_values
+        .items()
+    ):
+
+        environment[key] = (
+            normalise_environment_value(
+                value
+            )
+        )
+
+
+    for key, value in (
+        validated_inputs
+        .secret_values
+        .items()
+    ):
+
+        environment[key] = str(
+            value
+        )
+
+
+    return environment
+
+
+def normalise_environment_value(
+    value
+) -> str:
+
+    if isinstance(value, bool):
+
+        return (
+            "true"
+            if value
+            else "false"
+        )
+
+
+    return str(
+        value
+    )
+
+===== backend\routers\executions.py =====
+
+from pathlib import Path
+
+from fastapi.responses import FileResponse
+from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
+from backend.db.database import get_db
+from backend.models.execution import (
+    ExecutionCreate,
+    ExecutionResponse,
+    ProjectExecutionResponse,
+)
+from backend.services.execution_service import (
+    create_execution,
+    get_automation_executions,
+    get_automation_script,
+    get_execution,
+    build_project_execution_response,
+    get_project_executions,
+)
+from backend.services.execution_runner_service import (
+    run_execution,
+)
+
+from backend.db.project_model import (
+    ProjectDB,
+)
+
+from backend.ai.errors import (
+    AIProviderError,
+)
+
+from backend.models.execution_runtime import (
+    ExecutionRuntimeRequest,
+)
+
+from backend.services.execution_runtime_service import (
+    build_execution_environment,
+    prepare_execution_runtime,
+)
+
+from backend.db.automation_model import (
+    AutomationScriptDB,
+)
+
+from backend.db.requirement_model import (
+    RequirementDB,
+)
+
+from backend.db.test_case_model import (
+    TestCaseDB,
+)
+
+from backend.db.test_scenario_model import (
+    TestScenarioDB,
+)
+
+PROJECT_ROOT = (
+    Path(__file__).resolve().parents[2]
+)
+
+EVIDENCE_ROOT = (
+    PROJECT_ROOT /
+    "runner" /
+    "evidence"
+).resolve()
+
+router = APIRouter(
+    prefix="/api/executions",
+    tags=["Executions"]
+)
+
+def resolve_execution_context(
+    db: Session,
+    execution
+):
+
+    automation = (
+        db.query(AutomationScriptDB)
+        .filter(
+            AutomationScriptDB.id ==
+            execution.automation_script_id
+        )
+        .first()
+    )
+
+    if automation is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Automation for Execution "
+                "was not found"
+            )
+        )
+
+
+    test_case = (
+        db.query(TestCaseDB)
+        .filter(
+            TestCaseDB.id ==
+            automation.test_case_db_id
+        )
+        .first()
+    )
+
+    if test_case is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Parent Test Case "
+                "was not found"
+            )
+        )
+
+
+    if test_case.test_scenario_db_id is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Test Case is not linked "
+                "to a Test Scenario"
+            )
+        )
+
+
+    scenario = (
+        db.query(TestScenarioDB)
+        .filter(
+            TestScenarioDB.id ==
+            test_case.test_scenario_db_id
+        )
+        .first()
+    )
+
+    if scenario is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Parent Test Scenario "
+                "was not found"
+            )
+        )
+
+
+    requirement = (
+        db.query(RequirementDB)
+        .filter(
+            RequirementDB.id ==
+            test_case.requirement_db_id
+        )
+        .first()
+    )
+
+    if requirement is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Parent Requirement "
+                "was not found"
+            )
+        )
+
+
+    if (
+        scenario.requirement_db_id !=
+        requirement.id
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Scenario and Requirement "
+                "traceability is inconsistent"
+            )
+        )
+
+
+    project = (
+        db.query(ProjectDB)
+        .filter(
+            ProjectDB.id ==
+            requirement.project_id
+        )
+        .first()
+    )
+
+    if project is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Parent Project "
+                "was not found"
+            )
+        )
+
+
+    return (
+        automation,
+        test_case,
+        scenario,
+        requirement,
+        project
+    )
+
+def get_safe_evidence_file(
+    stored_path: str | None
+) -> Path | None:
+
+    if not stored_path:
+        return None
+
+    file_path = Path(
+        stored_path
+    ).resolve()
+
+    try:
+        file_path.relative_to(
+            EVIDENCE_ROOT
+        )
+    except ValueError:
+        return None
+
+    if not file_path.is_file():
+        return None
+
+    return file_path
+
+@router.post(
+    "",
+    response_model=ExecutionResponse,
+    status_code=201
+)
+def create_execution_endpoint(
+    request: ExecutionCreate,
+    db: Session = Depends(get_db)
+):
+
+    automation = get_automation_script(
+        db,
+        request.automation_script_id
+    )
+
+    if automation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Automation script not found"
+        )
+
+    if automation.status != "ready":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Only READY automation "
+                "can create an execution"
+            )
+        )
+
+    if not automation.code.strip():
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Automation has no generated code"
+            )
+        )
+
+    return create_execution(
+        db,
+        automation.id
+    )
+
+
+@router.get(
+    "/{execution_id}",
+    response_model=ExecutionResponse
+)
+def get_execution_endpoint(
+    execution_id: int,
+    db: Session = Depends(get_db)
+):
+
+    execution = get_execution(
+        db,
+        execution_id
+    )
+
+    if execution is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Execution not found"
+        )
+
+    return execution
+
+
+@router.get(
+    "/automation/{automation_script_id}",
+    response_model=list[ExecutionResponse]
+)
+def list_automation_executions(
+    automation_script_id: int,
+    db: Session = Depends(get_db)
+):
+
+    automation = get_automation_script(
+        db,
+        automation_script_id
+    )
+
+    if automation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Automation script not found"
+        )
+
+    return get_automation_executions(
+        db,
+        automation_script_id
+    )
+
+@router.post(
+    "/{execution_id}/run",
+    response_model=ExecutionResponse
+)
+
+
+def run_execution_endpoint(
+    execution_id: int,
+    request: ExecutionRuntimeRequest,
+    db: Session = Depends(get_db)
+):
+
+    execution = get_execution(
+        db,
+        execution_id
+    )
+
+
+    if execution is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Execution not found"
+        )
+
+
+    (
+        automation,
+        test_case,
+        scenario,
+        requirement,
+        project
+    ) = resolve_execution_context(
+        db,
+        execution
+    )
+
+
+    if execution.status != "pending":
+
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Only PENDING executions "
+                "can be run"
+            )
+        )
+
+
+    if automation.status != "ready":
+
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Automation script "
+                "is not READY"
+            )
+        )
+
+
+    if not (
+        automation.code and
+        automation.code.strip()
+    ):
+
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Automation has no "
+                "generated code"
+            )
+        )
+
+
+    try:
+
+        (
+            input_schema,
+            validated_inputs
+        ) = prepare_execution_runtime(
+            project=project,
+            requirement=requirement,
+            scenario=scenario,
+            test_case=test_case,
+            automation=automation,
+            request=request
+        )
+
+
+        runtime_environment = (
+            build_execution_environment(
+                validated_inputs
+            )
+        )
+
+
+    except AIProviderError as exc:
+
+        raise HTTPException(
+            status_code=502,
+            detail=str(exc)
+        ) from exc
+
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc)
+        ) from exc
+
+
+    return run_execution(
+        db=db,
+        execution=execution,
+        automation=automation,
+        runtime_environment=(
+            runtime_environment
+        )
+    )
+
+@router.get(
+    "/{execution_id}/evidence/screenshot",
+    response_class=FileResponse
+)
+def get_execution_screenshot(
+    execution_id: int,
+    db: Session = Depends(get_db)
+):
+
+    execution = get_execution(
+        db,
+        execution_id
+    )
+
+    if execution is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Execution not found"
+        )
+
+    screenshot = get_safe_evidence_file(
+        execution.screenshot_path
+    )
+
+    if screenshot is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Screenshot evidence "
+                "not available"
+            )
+        )
+
+    return FileResponse(
+        path=str(screenshot),
+        media_type="image/png",
+        filename=(
+            f"execution-{execution.id}"
+            "-screenshot.png"
+        )
+    )
+
+@router.get(
+    "/{execution_id}/evidence/trace",
+    response_class=FileResponse
+)
+def get_execution_trace(
+    execution_id: int,
+    db: Session = Depends(get_db)
+):
+
+    execution = get_execution(
+        db,
+        execution_id
+    )
+
+    if execution is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Execution not found"
+        )
+
+    trace = get_safe_evidence_file(
+        execution.trace_path
+    )
+
+    if trace is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Playwright trace "
+                "not available"
+            )
+        )
+
+    return FileResponse(
+        path=str(trace),
+        media_type="application/zip",
+        filename=(
+            f"execution-{execution.id}"
+            "-trace.zip"
+        )
+    )
+@router.get(
+    "/project/{project_id}",
+    response_model=list[
+        ProjectExecutionResponse
+    ]
+)
+def list_project_executions(
+    project_id: int,
+    db: Session = Depends(get_db)
+):
+
+    project = (
+        db.query(ProjectDB)
+        .filter(
+            ProjectDB.id ==
+            project_id
+        )
+        .first()
+    )
+
+    if project is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found"
+        )
+
+    rows = get_project_executions(
+        db,
+        project_id
+    )
+
+    return [
+        build_project_execution_response(
+            row
+        )
+        for row in rows
+    ]

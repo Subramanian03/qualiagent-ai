@@ -1,0 +1,45 @@
+﻿# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+frontend/node_modules/
+runner/node_modules/
+
+# Build output
+frontend/dist/
+dist/
+
+# QualiAgent local runtime data
+storage/*.db
+storage/*.sqlite
+storage/*.sqlite3
+*.db
+*.sqlite
+*.sqlite3
+
+# Playwright execution artifacts
+runner/evidence/
+runner/test-results/
+runner/playwright-report/
+runner/tests/generated/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
