@@ -3860,6 +3860,24 @@
     0;
 }
 
+.release-readiness-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+
+@media (
+  max-width: 640px
+) {
+  .release-readiness-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
 
 .release-readiness-signal {
   padding: 7px 11px;

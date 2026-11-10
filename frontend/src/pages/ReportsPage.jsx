@@ -18,6 +18,8 @@ function ReportsPage({
   loading,
   onViewExecution,
   releaseQuality,
+  releasePdfDownloading = false,
+  onDownloadReleasePdf,
   onBack
 }) {
   const [
@@ -578,42 +580,64 @@ function handleFilterReset() {
 
     <div className="release-readiness-heading">
 
-      <div>
+  <div>
 
-        <span className="section-label">
-          RELEASE READINESS
-        </span>
+    <span className="section-label">
+      RELEASE READINESS
+    </span>
 
-        <h3>
-          {filters.release}
+    <h3>
+      {filters.release}
 
-          {filters.environment
-            ? ` · ${filters.environment}`
-            : ""}
-        </h3>
+      {filters.environment
+        ? ` · ${filters.environment}`
+        : ""}
+    </h3>
 
-      </div>
+  </div>
 
 
-      <span
-        className={
-          `release-readiness-signal release-readiness-signal-${
-            releaseQuality?.signal ||
-            "unknown"
-          }`
-        }
-      >
-        {releaseQuality?.signal
-          ? releaseQuality.signal
-              .replaceAll(
-                "_",
-                " "
-              )
-              .toUpperCase()
-          : "UNAVAILABLE"}
-      </span>
+  <div className="release-readiness-actions">
 
-    </div>
+    <span
+      className={
+        `release-readiness-signal release-readiness-signal-${
+          releaseQuality?.signal ||
+          "unknown"
+        }`
+      }
+    >
+      {releaseQuality?.signal
+        ? releaseQuality.signal
+            .replaceAll(
+              "_",
+              " "
+            )
+            .toUpperCase()
+        : "UNAVAILABLE"}
+    </span>
+
+
+    <button
+      type="button"
+      className="secondary-button"
+      disabled={
+        releasePdfDownloading ||
+        !releaseQuality ||
+        !onDownloadReleasePdf
+      }
+      onClick={
+        onDownloadReleasePdf
+      }
+    >
+      {releasePdfDownloading
+        ? "Downloading..."
+        : "Download PDF"}
+    </button>
+
+  </div>
+
+</div>
 
 
     {!releaseQuality ? (

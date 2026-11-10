@@ -62,6 +62,7 @@ import {
   createHumanEditedAutomation,
   createAIUpdatedAutomation,
   getProjectReleaseQuality,
+  downloadProjectReleaseQualityPdf,
 } from "./services/api";
 
 function App() {
@@ -253,6 +254,11 @@ const [
   projectReleaseQuality,
   setProjectReleaseQuality
 ] = useState(null);
+
+  const [
+  releasePdfDownloading,
+  setReleasePdfDownloading
+] = useState(false);
 
   const [analysingRequirementId, setAnalysingRequirementId] = useState(null);
 
@@ -2404,6 +2410,110 @@ setRunningCycleAutomationItemId(
   );
 }
 
+  async function handleDownloadReleasePdf() {
+  const project =
+    selectedProject ||
+    projects[0];
+
+
+  const release =
+    reportFilters?.release ||
+    "";
+
+
+  const environment =
+    reportFilters?.environment ||
+    "";
+
+
+  if (
+    !project ||
+    !release
+  ) {
+
+    setError(
+      "Select and apply a Release before downloading the report."
+    );
+
+    return;
+  }
+
+
+  try {
+
+    setReleasePdfDownloading(
+      true
+    );
+
+
+    setError("");
+
+
+    const {
+      blob,
+      filename
+    } =
+      await downloadProjectReleaseQualityPdf(
+        project.id,
+        release,
+        environment
+      );
+
+
+    const objectUrl =
+      window.URL.createObjectURL(
+        blob
+      );
+
+
+    const link =
+      document.createElement(
+        "a"
+      );
+
+
+    link.href =
+      objectUrl;
+
+
+    link.download =
+      filename;
+
+
+    document.body.appendChild(
+      link
+    );
+
+
+    link.click();
+
+
+    document.body.removeChild(
+      link
+    );
+
+
+    window.URL.revokeObjectURL(
+      objectUrl
+    );
+
+
+  } catch (err) {
+
+    setError(
+      err.message ||
+      "Unable to download Release Quality PDF."
+    );
+
+
+  } finally {
+
+    setReleasePdfDownloading(
+      false
+    );
+  }
+}
+
   async function openReportsPage() {
   const project =
     selectedProject ||
@@ -4159,6 +4269,14 @@ function closeCycleAutomationModal() {
     releaseQuality={
       projectReleaseQuality
     }
+
+    releasePdfDownloading={
+  releasePdfDownloading
+}
+
+   onDownloadReleasePdf={
+  handleDownloadReleasePdf
+}
 
     traceability={
       projectCycleTraceability

@@ -2,10 +2,17 @@ from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from io import BytesIO
+
+from fastapi.responses import StreamingResponse
 
 from backend.db.database import get_db
 from backend.db.project_model import (
     ProjectDB,
+)
+from backend.services.release_quality_pdf_service import (
+    build_release_quality_pdf,
+    safe_filename_part,
 )
 from backend.models.report import (
     ProjectQualitySummary,
@@ -40,6 +47,9 @@ from backend.models.release_quality import (
 )
 from backend.services.release_quality_service import (
     get_project_release_quality,
+)
+from backend.services.release_quality_excel_service import (
+    build_release_quality_excel,
 )
 
 
@@ -279,3 +289,222 @@ def get_project_release_quality_endpoint(
             status_code=422,
             detail=str(exc)
         ) from exc
+
+@router.get(
+    "/project/{project_id}/release-quality/pdf"
+)
+def download_project_release_quality_pdf(
+    project_id: int,
+    release: str,
+    environment: str | None = None,
+    db: Session = Depends(get_db)
+):
+
+    project = (
+        db.query(
+            ProjectDB
+        )
+        .filter(
+            ProjectDB.id ==
+            project_id
+        )
+        .first()
+    )
+
+
+    if project is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found"
+        )
+
+
+    try:
+
+        release_quality = (
+            get_project_release_quality(
+                db,
+                project_id=project_id,
+                release=release,
+                environment=environment
+            )
+        )
+
+
+        pdf_bytes = (
+            build_release_quality_pdf(
+                project_name=(
+                    project.name
+                ),
+                release_quality=(
+                    release_quality
+                )
+            )
+        )
+
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc)
+        ) from exc
+
+
+    release_name = (
+        safe_filename_part(
+            release,
+            "Release"
+        )
+    )
+
+
+    environment_name = (
+        safe_filename_part(
+            environment,
+            "All-Environments"
+        )
+    )
+
+
+    filename = (
+        "QualiAgent-"
+        f"{release_name}-"
+        f"{environment_name}-"
+        "Release-Quality.pdf"
+    )
+
+
+    return StreamingResponse(
+        BytesIO(
+            pdf_bytes
+        ),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{filename}"'
+            )
+        }
+    )
+
+@router.get(
+    "/project/{project_id}/release-quality/excel"
+)
+def download_project_release_quality_excel(
+    project_id: int,
+    release: str,
+    environment: str | None = None,
+    db: Session = Depends(get_db)
+):
+
+    project = (
+        db.query(
+            ProjectDB
+        )
+        .filter(
+            ProjectDB.id ==
+            project_id
+        )
+        .first()
+    )
+
+
+    if project is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found"
+        )
+
+
+    try:
+
+        release_quality = (
+            get_project_release_quality(
+                db,
+                project_id=project_id,
+                release=release,
+                environment=environment
+            )
+        )
+
+
+        reporting_filters = (
+            CycleReportingFilters(
+                release=release,
+                environment=environment
+            )
+        )
+
+
+        traceability = (
+            get_project_cycle_traceability(
+                db,
+                project_id,
+                reporting_filters
+            )
+        )
+
+
+        excel_bytes = (
+            build_release_quality_excel(
+                project_name=(
+                    project.name
+                ),
+                release_quality=(
+                    release_quality
+                ),
+                traceability=(
+                    traceability
+                )
+            )
+        )
+
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc)
+        ) from exc
+
+
+    release_name = (
+        safe_filename_part(
+            release,
+            "Release"
+        )
+    )
+
+
+    environment_name = (
+        safe_filename_part(
+            environment,
+            "All-Environments"
+        )
+    )
+
+
+    filename = (
+        "QualiAgent-"
+        f"{release_name}-"
+        f"{environment_name}-"
+        "Release-Quality.xlsx"
+    )
+
+
+    return StreamingResponse(
+        BytesIO(
+            excel_bytes
+        ),
+        media_type=(
+            "application/vnd.openxmlformats-"
+            "officedocument.spreadsheetml.sheet"
+        ),
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{filename}"'
+            )
+        }
+    )
