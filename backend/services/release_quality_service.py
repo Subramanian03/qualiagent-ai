@@ -7,6 +7,8 @@ from backend.models.release_quality import (
     ReleaseExecutionModeSummary,
     ReleaseExecutionSummary,
     ReleaseReadinessReason,
+    ReleaseRiskExecution,
+    ReleaseRiskItem,
 )
 
 from backend.models.reporting_filters import (
@@ -17,8 +19,40 @@ from backend.services.cycle_reporting_service import (
     get_project_cycle_quality_summary,
 )
 
+from backend.services.cycle_traceability_service import (
+    get_project_cycle_traceability,
+)
+
 
 READY_PASS_RATE = 90.0
+
+
+RELEASE_RISK_RULES = {
+    "not_run": {
+        "severity": "blocker",
+        "risk_code": "NOT_RUN",
+    },
+
+    "running": {
+        "severity": "blocker",
+        "risk_code": "RUNNING",
+    },
+
+    "blocked": {
+        "severity": "blocker",
+        "risk_code": "BLOCKED",
+    },
+
+    "error": {
+        "severity": "blocker",
+        "risk_code": "ERROR",
+    },
+
+    "failed": {
+        "severity": "high",
+        "risk_code": "FAILED_TEST",
+    },
+}
 
 
 def clean_required_text(
@@ -61,6 +95,218 @@ def clean_optional_text(
     )
 
 
+def build_release_risks(
+    traceability
+) -> list:
+
+    risks = []
+
+
+    for requirement in (
+        traceability.requirements
+    ):
+
+        for scenario in (
+            requirement.scenarios
+        ):
+
+            for test_case in (
+                scenario.test_cases
+            ):
+
+                for occurrence in (
+                    test_case.occurrences
+                ):
+
+                    result_status = str(
+                        occurrence.result_status
+                        or
+                        ""
+                    ).strip().lower()
+
+
+                    rule = (
+                        RELEASE_RISK_RULES
+                        .get(
+                            result_status
+                        )
+                    )
+
+
+                    if rule is None:
+
+                        continue
+
+
+                    execution_result = None
+
+
+                    if (
+                        occurrence.execution
+                        is not None
+                    ):
+
+                        execution = (
+                            occurrence.execution
+                        )
+
+
+                        execution_result = (
+                            ReleaseRiskExecution(
+                                id=(
+                                    execution.id
+                                ),
+
+                                status=str(
+                                    execution.status
+                                    or
+                                    "unknown"
+                                ).strip().lower(),
+
+                                exit_code=(
+                                    execution.exit_code
+                                ),
+
+                                duration_ms=(
+                                    execution.duration_ms
+                                ),
+
+                                screenshot_available=(
+                                    execution
+                                    .screenshot_available
+                                ),
+
+                                trace_available=(
+                                    execution
+                                    .trace_available
+                                )
+                            )
+                        )
+
+
+                    risks.append(
+                        ReleaseRiskItem(
+                            severity=(
+                                rule[
+                                    "severity"
+                                ]
+                            ),
+
+                            risk_code=(
+                                rule[
+                                    "risk_code"
+                                ]
+                            ),
+
+                            requirement_id=(
+                                requirement
+                                .requirement_id
+                            ),
+
+                            requirement_title=(
+                                requirement.title
+                            ),
+
+                            scenario_id=(
+                                scenario.scenario_id
+                            ),
+
+                            scenario_title=(
+                                scenario.title
+                            ),
+
+                            test_case_db_id=(
+                                test_case.id
+                            ),
+
+                            test_case_id=(
+                                test_case
+                                .test_case_id
+                            ),
+
+                            test_case_title=(
+                                test_case.title
+                            ),
+
+                            cycle_id=(
+                                occurrence.cycle_id
+                            ),
+
+                            cycle_name=(
+                                occurrence.cycle_name
+                            ),
+
+                            cycle_status=(
+                                occurrence
+                                .cycle_status
+                            ),
+
+                            release=(
+                                occurrence.release
+                            ),
+
+                            environment=(
+                                occurrence.environment
+                            ),
+
+                            execution_mode=(
+                                occurrence
+                                .execution_mode
+                            ),
+
+                            result_status=(
+                                result_status
+                            ),
+
+                            automation_version_id=(
+                                occurrence
+                                .automation_version_id
+                            ),
+
+                            automation_version_number=(
+                                occurrence
+                                .automation_version_number
+                            ),
+
+                            automation_engine=(
+                                occurrence
+                                .automation_engine
+                            ),
+
+                            automation_language=(
+                                occurrence
+                                .automation_language
+                            ),
+
+                            execution=(
+                                execution_result
+                            )
+                        )
+                    )
+
+
+    severity_order = {
+        "blocker": 0,
+        "high": 1,
+    }
+
+
+    risks.sort(
+        key=lambda risk: (
+            severity_order.get(
+                risk.severity,
+                99
+            ),
+            risk.requirement_id,
+            risk.scenario_id,
+            risk.test_case_id,
+            risk.cycle_id,
+        )
+    )
+
+
+    return risks
+
 def determine_release_signal(
     *,
     planned_tests: int,
@@ -84,6 +330,7 @@ def determine_release_signal(
         reasons.append(
             ReleaseReadinessReason(
                 code="NO_TESTS",
+
                 message=(
                     "No Test Cases are planned "
                     "for the selected Release "
@@ -104,6 +351,7 @@ def determine_release_signal(
         reasons.append(
             ReleaseReadinessReason(
                 code="NOT_RUN",
+
                 message=(
                     f"{not_run} planned Test "
                     "Case(s) have not been run."
@@ -117,6 +365,7 @@ def determine_release_signal(
         reasons.append(
             ReleaseReadinessReason(
                 code="RUNNING",
+
                 message=(
                     f"{running} Test Case(s) "
                     "are still running."
@@ -130,6 +379,7 @@ def determine_release_signal(
         reasons.append(
             ReleaseReadinessReason(
                 code="BLOCKED",
+
                 message=(
                     f"{blocked} Test Case(s) "
                     "are blocked."
@@ -143,6 +393,7 @@ def determine_release_signal(
         reasons.append(
             ReleaseReadinessReason(
                 code="ERROR",
+
                 message=(
                     f"{error} automated Test "
                     "Case(s) ended with an "
@@ -177,6 +428,7 @@ def determine_release_signal(
         reasons.append(
             ReleaseReadinessReason(
                 code="NO_COMPLETED_TESTS",
+
                 message=(
                     "No Test Cases have a "
                     "completed result."
@@ -196,6 +448,7 @@ def determine_release_signal(
         reasons.append(
             ReleaseReadinessReason(
                 code="FAILED_TESTS",
+
                 message=(
                     f"{failed} completed Test "
                     "Case(s) failed."
@@ -209,9 +462,10 @@ def determine_release_signal(
         reasons.append(
             ReleaseReadinessReason(
                 code="PASS_RATE",
+
                 message=(
                     f"Pass rate {pass_rate}% "
-                    f"is below the "
+                    "is below the "
                     f"{READY_PASS_RATE}% "
                     "release-readiness threshold."
                 )
@@ -230,6 +484,7 @@ def determine_release_signal(
     reasons.append(
         ReleaseReadinessReason(
             code="READY",
+
             message=(
                 "All planned Test Cases have "
                 "completed without failed, "
@@ -270,18 +525,40 @@ def get_project_release_quality(
     )
 
 
+    reporting_filters = (
+        CycleReportingFilters(
+            release=(
+                selected_release
+            ),
+
+            environment=(
+                selected_environment
+            )
+        )
+    )
+
+
     summary = (
         get_project_cycle_quality_summary(
             db,
             project_id,
-            CycleReportingFilters(
-                release=(
-                    selected_release
-                ),
-                environment=(
-                    selected_environment
-                )
-            )
+            reporting_filters
+        )
+    )
+
+
+    traceability = (
+        get_project_cycle_traceability(
+            db,
+            project_id,
+            reporting_filters
+        )
+    )
+
+
+    risks = (
+        build_release_risks(
+            traceability
         )
     )
 
@@ -326,13 +603,17 @@ def get_project_release_quality(
     return ProjectReleaseQuality(
         project_id=project_id,
 
-        release=selected_release,
+        release=(
+            selected_release
+        ),
 
         environment=(
             selected_environment
         ),
 
-        signal=signal,
+        signal=(
+            signal
+        ),
 
         execution=(
             ReleaseExecutionSummary(
@@ -442,5 +723,11 @@ def get_project_release_quality(
             )
         ),
 
-        reasons=reasons
+        reasons=(
+            reasons
+        ),
+
+        risks=(
+            risks
+        )
     )

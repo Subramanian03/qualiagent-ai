@@ -3925,3 +3925,186 @@
     flex-direction: column;
   }
 }
+
+.release-risk-section {
+  display: grid;
+  gap: 14px;
+
+  padding-top: 6px;
+}
+
+
+.release-risk-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+
+.release-risk-section-heading h4 {
+  margin:
+    4px
+    0
+    0;
+}
+
+
+.release-risk-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 32px;
+  height: 32px;
+  padding: 0 9px;
+
+  border-radius: 999px;
+
+  background: #eef2f6;
+
+  color: #344054;
+  font-weight: 800;
+}
+
+
+.release-risk-list {
+  display: grid;
+  gap: 12px;
+}
+
+
+.release-risk-card {
+  display: grid;
+  gap: 12px;
+
+  padding: 15px;
+
+  border: 1px solid #e5eaf1;
+  border-left-width: 5px;
+  border-radius: 11px;
+
+  background: #ffffff;
+}
+
+
+.release-risk-blocker {
+  border-left-color: #c83f49;
+}
+
+
+.release-risk-high {
+  border-left-color: #d29b26;
+}
+
+
+.release-risk-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+
+.release-risk-card-heading h4 {
+  margin:
+    6px
+    0
+    0;
+}
+
+
+.release-risk-badges,
+.release-risk-traceability,
+.release-risk-execution {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+
+.release-risk-badges {
+  margin-bottom: 8px;
+}
+
+
+.release-risk-severity,
+.release-risk-code,
+.release-risk-traceability span,
+.release-risk-execution span {
+  display: inline-flex;
+  align-items: center;
+
+  padding: 4px 8px;
+
+  border-radius: 999px;
+
+  font-size: 12px;
+}
+
+
+.release-risk-severity {
+  font-weight: 800;
+}
+
+
+.release-risk-severity-blocker {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+
+.release-risk-severity-high {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+
+.release-risk-code {
+  background: #f2f4f7;
+  color: #475467;
+  font-weight: 700;
+}
+
+
+.release-risk-traceability span,
+.release-risk-execution span {
+  background: #f2f4f7;
+  color: #475467;
+}
+
+
+.release-risk-automation {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  color: #475467;
+  font-size: 13px;
+}
+
+
+.release-risk-actions {
+  display: flex;
+  gap: 8px;
+}
+
+
+.release-risk-empty {
+  padding: 12px;
+
+  border-radius: 9px;
+
+  background: #f8fafc;
+
+  color: #667085;
+}
+
+
+@media (
+  max-width: 640px
+) {
+  .release-risk-card-heading {
+    flex-direction: column;
+  }
+}

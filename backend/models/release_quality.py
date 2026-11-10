@@ -9,6 +9,11 @@ ReleaseReadinessSignal = Literal[
     "not_ready",
 ]
 
+ReleaseRiskSeverity = Literal[
+    "blocker",
+    "high",
+]
+
 
 class ReleaseExecutionSummary(
     BaseModel
@@ -81,6 +86,67 @@ class ReleaseReadinessReason(
 
     message: str
 
+class ReleaseRiskExecution(
+    BaseModel
+):
+
+    id: int
+
+    status: str
+
+    exit_code: int | None
+
+    duration_ms: int | None
+
+    screenshot_available: bool
+
+    trace_available: bool
+
+class ReleaseRiskItem(
+    BaseModel
+):
+
+    severity: ReleaseRiskSeverity
+
+    risk_code: str
+
+    requirement_id: str
+
+    requirement_title: str
+
+    scenario_id: str
+
+    scenario_title: str
+
+    test_case_db_id: int
+
+    test_case_id: str
+
+    test_case_title: str
+
+    cycle_id: int
+
+    cycle_name: str
+
+    cycle_status: str
+
+    release: str | None
+
+    environment: str | None
+
+    execution_mode: str
+
+    result_status: str
+
+    automation_version_id: int | None
+
+    automation_version_number: int | None
+
+    automation_engine: str | None
+
+    automation_language: str | None
+
+    execution: ReleaseRiskExecution | None
 
 class ProjectReleaseQuality(
     BaseModel
@@ -104,4 +170,7 @@ class ProjectReleaseQuality(
 
     reasons: list[
         ReleaseReadinessReason
+    ]
+    risks: list[
+        ReleaseRiskItem
     ]

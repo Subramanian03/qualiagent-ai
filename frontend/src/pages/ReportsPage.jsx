@@ -105,6 +105,13 @@ useEffect(
     ? traceability.requirements
     : [];
 
+  const releaseRisks =
+  Array.isArray(
+    releaseQuality?.risks
+  )
+    ? releaseQuality.risks
+    : [];
+
 
   const recentExecutions =
   safeExecutions.slice(
@@ -768,6 +775,79 @@ function handleFilterReset() {
           )}
 
         </div>
+
+        <div className="release-risk-section">
+
+  <div className="release-risk-section-heading">
+
+    <div>
+
+      <span className="section-label">
+        RELEASE RISKS
+      </span>
+
+      <h4>
+        Tests requiring attention
+      </h4>
+
+    </div>
+
+
+    <span className="release-risk-count">
+      {releaseRisks.length}
+    </span>
+
+  </div>
+
+
+  {releaseRisks.length === 0 ? (
+
+    <div className="release-risk-empty">
+
+      No Test Case risks were identified
+      for this Release and Environment.
+
+    </div>
+
+  ) : (
+
+    <div className="release-risk-list">
+
+      {releaseRisks.map(
+        (risk) => (
+
+          <ReleaseRiskCard
+            key={
+              `${
+                risk.cycle_id
+              }-${
+                risk.test_case_db_id
+              }-${
+                risk.risk_code
+              }`
+            }
+
+            risk={
+              risk
+            }
+
+            executions={
+              safeExecutions
+            }
+
+            onViewExecution={
+              onViewExecution
+            }
+          />
+
+        )
+      )}
+
+    </div>
+
+  )}
+
+</div>
 
       </>
 
@@ -1535,6 +1615,276 @@ function ReportSection({
       {children}
 
     </section>
+  );
+}
+
+function ReleaseRiskCard({
+  risk,
+  executions,
+  onViewExecution
+}) {
+  const severity = String(
+    risk.severity ||
+    "high"
+  ).toLowerCase();
+
+
+  const resultStatus = String(
+    risk.result_status ||
+    "unknown"
+  ).toLowerCase();
+
+
+  const execution =
+    risk.execution;
+
+
+  const safeExecutionList =
+    Array.isArray(
+      executions
+    )
+      ? executions
+      : [];
+
+
+  const fullExecution =
+    execution
+      ? safeExecutionList.find(
+          (item) =>
+            item.id ===
+            execution.id
+        )
+      : null;
+
+
+  return (
+    <article
+      className={
+        `release-risk-card release-risk-${severity}`
+      }
+    >
+
+      <div className="release-risk-card-heading">
+
+        <div>
+
+          <div className="release-risk-badges">
+
+            <span
+              className={
+                `release-risk-severity release-risk-severity-${severity}`
+              }
+            >
+              {severity.toUpperCase()}
+            </span>
+
+
+            <span
+              className={
+                `cycle-item-status cycle-item-status-${resultStatus}`
+              }
+            >
+              {resultStatus
+                .replaceAll(
+                  "_",
+                  " "
+                )
+                .toUpperCase()}
+            </span>
+
+          </div>
+
+
+          <span className="requirement-id">
+            {risk.test_case_id}
+          </span>
+
+
+          <h4>
+            {risk.test_case_title}
+          </h4>
+
+        </div>
+
+
+        <span className="release-risk-code">
+          {String(
+            risk.risk_code ||
+            "RISK"
+          )
+            .replaceAll(
+              "_",
+              " "
+            )
+            .toUpperCase()}
+        </span>
+
+      </div>
+
+
+      <div className="release-risk-traceability">
+
+        <span>
+          Requirement:
+          {" "}
+          {risk.requirement_id}
+        </span>
+
+
+        <span>
+          Scenario:
+          {" "}
+          {risk.scenario_id}
+        </span>
+
+
+        <span>
+          Cycle:
+          {" "}
+          {risk.cycle_name}
+          {" "}
+          (#{risk.cycle_id})
+        </span>
+
+
+        <span>
+          {String(
+            risk.execution_mode ||
+            "unknown"
+          ).toUpperCase()}
+        </span>
+
+
+        {risk.environment && (
+
+          <span>
+            Environment:
+            {" "}
+            {risk.environment}
+          </span>
+
+        )}
+
+      </div>
+
+
+      {risk.automation_version_id !=
+        null && (
+
+        <div className="release-risk-automation">
+
+          <span>
+            Frozen Automation:
+          </span>
+
+          <strong>
+
+            {risk.automation_engine
+              ? String(
+                  risk.automation_engine
+                ).toUpperCase()
+              : "AUTOMATION"}
+
+            {risk.automation_version_number !=
+              null && (
+              <>
+                {" "}
+                V
+                {risk
+                  .automation_version_number}
+              </>
+            )}
+
+          </strong>
+
+        </div>
+
+      )}
+
+
+      {execution && (
+
+        <div className="release-risk-execution">
+
+          <span>
+            Execution #{execution.id}
+          </span>
+
+
+          <span>
+            Exit Code:
+            {" "}
+            {execution.exit_code ??
+              "N/A"}
+          </span>
+
+
+          <span>
+            Duration:
+            {" "}
+            {execution.duration_ms !=
+              null
+              ? formatDuration(
+                  execution.duration_ms
+                )
+              : "N/A"}
+          </span>
+
+
+          {execution.screenshot_available && (
+
+            <span className="traceability-evidence-available">
+              SCREENSHOT
+            </span>
+
+          )}
+
+
+          {execution.trace_available && (
+
+            <span className="traceability-evidence-available">
+              TRACE
+            </span>
+
+          )}
+
+        </div>
+
+      )}
+
+
+      {execution && (
+
+        <div className="release-risk-actions">
+
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={
+              !fullExecution ||
+              !onViewExecution
+            }
+            onClick={() => {
+
+              if (
+                fullExecution &&
+                onViewExecution
+              ) {
+
+                onViewExecution(
+                  fullExecution
+                );
+              }
+            }}
+          >
+            View Execution
+          </button>
+
+        </div>
+
+      )}
+
+    </article>
   );
 }
 
