@@ -1564,3 +1564,109 @@ export async function downloadProjectReleaseQualityPdf(
     filename
   };
 }
+
+export async function downloadProjectReleaseQualityExcel(
+  projectId,
+  release,
+  environment = ""
+) {
+  const params =
+    new URLSearchParams();
+
+
+  params.set(
+    "release",
+    String(
+      release
+    ).trim()
+  );
+
+
+  if (
+    environment &&
+    String(
+      environment
+    ).trim()
+  ) {
+
+    params.set(
+      "environment",
+      String(
+        environment
+      ).trim()
+    );
+  }
+
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/reports/project/${projectId}/release-quality/excel?${params.toString()}`
+  );
+
+
+  if (!response.ok) {
+
+    let detail =
+      "Failed to download Release Quality Excel report";
+
+
+    try {
+
+      const data =
+        await response.json();
+
+
+      detail =
+        data?.detail ||
+        detail;
+
+
+    } catch {
+
+      // Keep the default message.
+    }
+
+
+    throw new Error(
+      detail
+    );
+  }
+
+
+  const blob =
+    await response.blob();
+
+
+  const contentDisposition =
+    response.headers.get(
+      "Content-Disposition"
+    );
+
+
+  let filename =
+    "QualiAgent-Release-Quality.xlsx";
+
+
+  if (contentDisposition) {
+
+    const match =
+      contentDisposition.match(
+        /filename="?([^";]+)"?/i
+      );
+
+
+    if (
+      match &&
+      match[1]
+    ) {
+
+      filename =
+        match[1];
+    }
+  }
+
+
+  return {
+    blob,
+    filename
+  };
+}

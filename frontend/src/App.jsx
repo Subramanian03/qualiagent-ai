@@ -63,6 +63,7 @@ import {
   createAIUpdatedAutomation,
   getProjectReleaseQuality,
   downloadProjectReleaseQualityPdf,
+  downloadProjectReleaseQualityExcel,
 } from "./services/api";
 
 function App() {
@@ -258,6 +259,11 @@ const [
   const [
   releasePdfDownloading,
   setReleasePdfDownloading
+] = useState(false);
+
+  const [
+  releaseExcelDownloading,
+  setReleaseExcelDownloading
 ] = useState(false);
 
   const [analysingRequirementId, setAnalysingRequirementId] = useState(null);
@@ -2514,6 +2520,110 @@ setRunningCycleAutomationItemId(
   }
 }
 
+  async function handleDownloadReleaseExcel() {
+  const project =
+    selectedProject ||
+    projects[0];
+
+
+  const release =
+    reportFilters?.release ||
+    "";
+
+
+  const environment =
+    reportFilters?.environment ||
+    "";
+
+
+  if (
+    !project ||
+    !release
+  ) {
+
+    setError(
+      "Select and apply a Release before downloading the Excel report."
+    );
+
+    return;
+  }
+
+
+  try {
+
+    setReleaseExcelDownloading(
+      true
+    );
+
+
+    setError("");
+
+
+    const {
+      blob,
+      filename
+    } =
+      await downloadProjectReleaseQualityExcel(
+        project.id,
+        release,
+        environment
+      );
+
+
+    const objectUrl =
+      window.URL.createObjectURL(
+        blob
+      );
+
+
+    const link =
+      document.createElement(
+        "a"
+      );
+
+
+    link.href =
+      objectUrl;
+
+
+    link.download =
+      filename;
+
+
+    document.body.appendChild(
+      link
+    );
+
+
+    link.click();
+
+
+    document.body.removeChild(
+      link
+    );
+
+
+    window.URL.revokeObjectURL(
+      objectUrl
+    );
+
+
+  } catch (err) {
+
+    setError(
+      err.message ||
+      "Unable to download Release Quality Excel report."
+    );
+
+
+  } finally {
+
+    setReleaseExcelDownloading(
+      false
+    );
+  }
+}
+
   async function openReportsPage() {
   const project =
     selectedProject ||
@@ -4276,6 +4386,14 @@ function closeCycleAutomationModal() {
 
    onDownloadReleasePdf={
   handleDownloadReleasePdf
+}
+
+    releaseExcelDownloading={
+  releaseExcelDownloading
+}
+
+    onDownloadReleaseExcel={
+  handleDownloadReleaseExcel
 }
 
     traceability={

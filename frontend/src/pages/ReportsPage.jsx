@@ -20,6 +20,8 @@ function ReportsPage({
   releaseQuality,
   releasePdfDownloading = false,
   onDownloadReleasePdf,
+  releaseExcelDownloading = false,
+  onDownloadReleaseExcel, 
   onBack
 }) {
   const [
@@ -621,11 +623,12 @@ function handleFilterReset() {
     <button
       type="button"
       className="secondary-button"
-      disabled={
-        releasePdfDownloading ||
-        !releaseQuality ||
-        !onDownloadReleasePdf
-      }
+      ddisabled={
+  releasePdfDownloading ||
+  releaseExcelDownloading ||
+  !releaseQuality ||
+  !onDownloadReleasePdf
+}
       onClick={
         onDownloadReleasePdf
       }
@@ -634,6 +637,24 @@ function handleFilterReset() {
         ? "Downloading..."
         : "Download PDF"}
     </button>
+
+    <button
+  type="button"
+  className="secondary-button"
+  disabled={
+  releaseExcelDownloading ||
+  releasePdfDownloading ||
+  !releaseQuality ||
+  !onDownloadReleaseExcel
+}
+  onClick={
+    onDownloadReleaseExcel
+  }
+>
+  {releaseExcelDownloading
+    ? "Downloading..."
+    : "Download Excel"}
+</button>
 
   </div>
 
