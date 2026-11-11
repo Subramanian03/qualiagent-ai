@@ -30,6 +30,9 @@ from backend.db.project_model import (
 
 from backend.ai.errors import (
     AIProviderError,
+    AIProviderConfigurationError,
+    AIProviderResponseError,
+    AIProviderUnavailableError,
 )
 
 from backend.models.execution_runtime import (
@@ -62,6 +65,14 @@ from backend.automation_engines import (
 
 from backend.automation_engines.errors import (
     AutomationEngineError,
+)
+
+from backend.models.failure_analysis import (
+    FailureAnalysisResponse,
+)
+
+from backend.services.failure_analysis_service import (
+    analyze_execution_failure,
 )
 
 PROJECT_ROOT = (
@@ -605,3 +616,75 @@ def list_project_executions(
         )
         for row in rows
     ]
+
+@router.post(
+    "/{execution_id}/failure-analysis",
+    response_model=FailureAnalysisResponse
+)
+def analyze_execution_failure_endpoint(
+    execution_id: int,
+    db: Session = Depends(get_db)
+):
+
+    try:
+
+        return (
+            analyze_execution_failure(
+                db,
+                execution_id
+            )
+        )
+
+
+    except AIProviderConfigurationError as exc:
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "AI failure analysis is not "
+                "configured correctly."
+            )
+        ) from exc
+
+
+    except AIProviderUnavailableError as exc:
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "AI failure analysis provider "
+                "is currently unavailable."
+            )
+        ) from exc
+
+
+    except AIProviderResponseError as exc:
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "AI failure analysis returned "
+                "an invalid provider response."
+            )
+        ) from exc
+
+
+    except ValueError as exc:
+
+        message = str(
+            exc
+        )
+
+
+        if message == "Execution not found":
+
+            raise HTTPException(
+                status_code=404,
+                detail=message
+            ) from exc
+
+
+        raise HTTPException(
+            status_code=422,
+            detail=message
+        ) from exc

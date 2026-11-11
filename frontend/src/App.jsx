@@ -62,6 +62,7 @@ import {
   createHumanEditedAutomation,
   createAIUpdatedAutomation,
   getProjectReleaseQuality,
+  analyzeExecutionFailure,
   downloadProjectReleaseQualityPdf,
   downloadProjectReleaseQualityExcel,
 } from "./services/api";
@@ -335,6 +336,23 @@ const [
   const [executionsLoading,setExecutionsLoading] = useState(false);
 
   const [selectedHistoryExecution,setSelectedHistoryExecution] = useState(null);
+
+  const [
+  failureAnalysis,
+  setFailureAnalysis
+] = useState(null);
+
+
+const [
+  failureAnalysisLoading,
+  setFailureAnalysisLoading
+] = useState(false);
+
+
+const [
+  failureAnalysisError,
+  setFailureAnalysisError
+] = useState("");
 
   const [projectQualitySummary,setProjectQualitySummary] = useState(null);
 
@@ -2719,6 +2737,18 @@ setRunningCycleAutomationItemId(
   function handleViewHistoryExecution(
   execution
 ) {
+  setFailureAnalysis(
+  null
+);
+
+setFailureAnalysisError(
+  ""
+);
+
+setFailureAnalysisLoading(
+  false
+);
+
   if (historyScreenshotUrl) {
     URL.revokeObjectURL(
       historyScreenshotUrl
@@ -2851,6 +2881,100 @@ setRunningCycleAutomationItemId(
   setSelectedHistoryExecution(
     null
   );
+  setFailureAnalysis(
+  null
+);
+
+setFailureAnalysisError(
+  ""
+);
+
+setFailureAnalysisLoading(
+  false
+);
+}
+
+  async function handleAnalyzeExecutionFailure() {
+  const execution =
+    selectedHistoryExecution;
+
+
+  if (!execution) {
+
+    setFailureAnalysisError(
+      "No Execution is selected."
+    );
+
+    return;
+  }
+
+
+  const status = String(
+    execution.status ||
+    ""
+  ).trim().toLowerCase();
+
+
+  if (
+    status !== "failed" &&
+    status !== "error"
+  ) {
+
+    setFailureAnalysisError(
+      "AI failure analysis is available only for FAILED or ERROR executions."
+    );
+
+    return;
+  }
+
+
+  try {
+
+    setFailureAnalysisLoading(
+      true
+    );
+
+
+    setFailureAnalysisError(
+      ""
+    );
+
+
+    setFailureAnalysis(
+      null
+    );
+
+
+    const result =
+      await analyzeExecutionFailure(
+        execution.id
+      );
+
+
+    setFailureAnalysis(
+      result
+    );
+
+
+  } catch (err) {
+
+    setFailureAnalysis(
+      null
+    );
+
+
+    setFailureAnalysisError(
+      err.message ||
+      "Unable to analyze the Execution failure."
+    );
+
+
+  } finally {
+
+    setFailureAnalysisLoading(
+      false
+    );
+  }
 }
 
   async function loadAutomationHistory(
@@ -6492,6 +6616,21 @@ selectedTestCase.id
     screenshotLoading={
       historyScreenshotLoading
     }
+    failureAnalysis={
+  failureAnalysis
+}
+
+failureAnalysisLoading={
+  failureAnalysisLoading
+}
+
+failureAnalysisError={
+  failureAnalysisError
+}
+
+onAnalyzeFailure={
+  handleAnalyzeExecutionFailure
+}
     onViewScreenshot={
       handleViewHistoryScreenshot
     }

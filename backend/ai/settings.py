@@ -2,10 +2,13 @@ import os
 
 from dataclasses import dataclass
 
+from dotenv import load_dotenv
+
 from backend.ai.errors import (
     AIProviderConfigurationError,
 )
 
+load_dotenv()
 
 VALID_AI_MODES = {
     "mock",

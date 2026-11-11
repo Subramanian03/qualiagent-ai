@@ -2,6 +2,10 @@ function ExecutionDetailsModal({
   execution,
   screenshotUrl,
   screenshotLoading,
+  failureAnalysis,
+failureAnalysisLoading = false,
+failureAnalysisError = "",
+onAnalyzeFailure,
   onViewScreenshot,
   onDownloadTrace,
   onClose
@@ -49,6 +53,15 @@ function ExecutionDetailsModal({
     return date.toLocaleString();
   }
 
+  const executionStatus = String(
+  execution?.status ||
+  ""
+).trim().toLowerCase();
+
+
+const canAnalyzeFailure =
+  executionStatus === "failed" ||
+  executionStatus === "error";
 
   return (
     <div className="modal-backdrop">
@@ -274,41 +287,75 @@ function ExecutionDetailsModal({
 
           <div className="execution-evidence-actions">
 
-            {execution.screenshot_path && (
+  {execution.screenshot_path && (
 
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={
-                  screenshotLoading
-                }
-                onClick={
-                  onViewScreenshot
-                }
-              >
-                {screenshotLoading
-                  ? "Loading..."
-                  : "View Screenshot"}
-              </button>
+    <button
+      type="button"
+      className="secondary-button"
+      disabled={
+        screenshotLoading
+      }
+      onClick={
+        onViewScreenshot
+      }
+    >
+      {screenshotLoading
+        ? "Loading..."
+        : "View Screenshot"}
+    </button>
 
-            )}
+  )}
 
 
-            {execution.trace_path && (
+  {execution.trace_path && (
 
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={
-                  onDownloadTrace
-                }
-              >
-                Download Trace
-              </button>
+    <button
+      type="button"
+      className="secondary-button"
+      onClick={
+        onDownloadTrace
+      }
+    >
+      Download Trace
+    </button>
 
-            )}
+  )}
 
-          </div>
+
+  {canAnalyzeFailure && (
+
+    <button
+      type="button"
+      className="primary-button"
+      disabled={
+        failureAnalysisLoading ||
+        !onAnalyzeFailure
+      }
+      onClick={
+        onAnalyzeFailure
+      }
+    >
+      {failureAnalysisLoading
+        ? "Analyzing..."
+        : failureAnalysis
+          ? "Analyze Again"
+          : "Analyze Failure with AI"}
+    </button>
+
+  )}
+
+</div>
+
+         {failureAnalysisError && (
+
+  <div
+    className="failure-analysis-error"
+    role="alert"
+  >
+    {failureAnalysisError}
+  </div>
+
+)}
 
 
           {screenshotUrl && (
@@ -329,7 +376,18 @@ function ExecutionDetailsModal({
         </section>
 
 
-        <div className="execution-details-footer">
+{failureAnalysis && (
+
+  <FailureAnalysisPanel
+    analysis={
+      failureAnalysis
+    }
+  />
+
+)}
+
+
+<div className="execution-details-footer">
 
           <span>
             Execution results are read-only
@@ -369,6 +427,322 @@ function ExecutionDetailItem({
       </strong>
 
     </div>
+  );
+}
+
+function FailureAnalysisPanel({
+  analysis
+}) {
+  const finding =
+    analysis?.finding;
+
+
+  const suggestion =
+    analysis?.suggested_automation_change;
+
+
+  const classification = String(
+    finding?.classification ||
+    "unknown"
+  ).toLowerCase();
+
+
+  const recommendationType = String(
+    finding?.recommendation_type ||
+    "manual_investigation"
+  );
+
+
+  const confidenceValue =
+    Number(
+      finding?.confidence
+    );
+
+
+  const confidencePercent =
+    Number.isFinite(
+      confidenceValue
+    )
+      ? Math.round(
+          Math.max(
+            0,
+            Math.min(
+              1,
+              confidenceValue
+            )
+          ) * 100
+        )
+      : 0;
+
+
+  const evidenceItems =
+    Array.isArray(
+      finding?.evidence
+    )
+      ? finding.evidence
+      : [];
+
+
+  return (
+    <section className="failure-analysis-panel">
+
+      <div className="failure-analysis-heading">
+
+        <div>
+
+          <span className="section-label">
+            AI FAILURE ANALYSIS
+          </span>
+
+          <h3>
+            Failure diagnosis
+          </h3>
+
+        </div>
+
+
+        <div className="failure-analysis-badges">
+
+          <span
+            className={
+              `failure-analysis-classification failure-analysis-${classification}`
+            }
+          >
+            {classification
+              .replaceAll(
+                "_",
+                " "
+              )
+              .toUpperCase()}
+          </span>
+
+
+          <span className="failure-analysis-confidence">
+            {confidencePercent}%
+            {" "}
+            confidence
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div className="failure-analysis-warning">
+
+        <strong>
+          Human review required
+        </strong>
+
+        <p>
+          This diagnosis is advisory. It did
+          not change the historical Execution
+          result or modify the frozen
+          Automation version.
+        </p>
+
+      </div>
+
+
+      <div className="failure-analysis-detail">
+
+        <strong>
+          Summary
+        </strong>
+
+        <p>
+          {finding?.summary ||
+            "No summary returned."}
+        </p>
+
+      </div>
+
+
+      <div className="failure-analysis-detail">
+
+        <strong>
+          Likely cause
+        </strong>
+
+        <p>
+          {finding?.likely_cause ||
+            "No likely cause returned."}
+        </p>
+
+      </div>
+
+
+      <div className="failure-analysis-detail">
+
+        <strong>
+          Supporting evidence
+        </strong>
+
+        {evidenceItems.length === 0 ? (
+
+          <p>
+            No supporting evidence returned.
+          </p>
+
+        ) : (
+
+          <ul>
+
+            {evidenceItems.map(
+              (
+                item,
+                index
+              ) => (
+
+                <li
+                  key={
+                    `${index}-${item}`
+                  }
+                >
+                  {item}
+                </li>
+
+              )
+            )}
+
+          </ul>
+
+        )}
+
+      </div>
+
+
+      <div className="failure-analysis-detail">
+
+        <strong>
+          Recommended action
+        </strong>
+
+        <span className="failure-analysis-recommendation-type">
+          {recommendationType
+            .replaceAll(
+              "_",
+              " "
+            )
+            .toUpperCase()}
+        </span>
+
+        <p>
+          {finding?.recommended_action ||
+            "No recommended action returned."}
+        </p>
+
+      </div>
+
+
+      {suggestion && (
+
+        <div className="failure-analysis-suggestion">
+
+          <div>
+
+            <strong>
+              Suggested automation change
+            </strong>
+
+            <span>
+              {suggestion.applicable
+                ? "APPLICABLE"
+                : "NOT APPLICABLE"}
+            </span>
+
+          </div>
+
+
+          <p>
+            {suggestion.rationale}
+          </p>
+
+
+          {suggestion.current_code_excerpt && (
+
+            <div className="failure-analysis-code">
+
+              <strong>
+                Current code excerpt
+              </strong>
+
+              <pre>
+                {suggestion
+                  .current_code_excerpt}
+              </pre>
+
+            </div>
+
+          )}
+
+
+          {suggestion.suggested_code_excerpt && (
+
+            <div className="failure-analysis-code">
+
+              <strong>
+                Suggested code excerpt
+              </strong>
+
+              <pre>
+                {suggestion
+                  .suggested_code_excerpt}
+              </pre>
+
+            </div>
+
+          )}
+
+
+          {suggestion.full_replacement_code && (
+
+            <div className="failure-analysis-code">
+
+              <strong>
+                Suggested replacement
+              </strong>
+
+              <pre>
+                {suggestion
+                  .full_replacement_code}
+              </pre>
+
+            </div>
+
+          )}
+
+        </div>
+
+      )}
+
+
+      <div className="failure-analysis-provider">
+
+        <span>
+          Provider:
+          {" "}
+          {analysis?.provider?.provider ||
+            "unknown"}
+        </span>
+
+        <span>
+          Model:
+          {" "}
+          {analysis?.provider?.model ||
+            "N/A"}
+        </span>
+
+        <span>
+          Mode:
+          {" "}
+          {analysis?.provider?.mode ||
+            "unknown"}
+        </span>
+
+      </div>
+
+    </section>
   );
 }
 

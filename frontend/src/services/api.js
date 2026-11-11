@@ -1670,3 +1670,39 @@ export async function downloadProjectReleaseQualityExcel(
     filename
   };
 }
+
+export async function analyzeExecutionFailure(
+  executionId
+) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/executions/${executionId}/failure-analysis`,
+    {
+      method: "POST"
+    }
+  );
+
+
+  let data;
+
+
+  try {
+
+    data = await response.json();
+
+  } catch {
+
+    data = null;
+  }
+
+
+  if (!response.ok) {
+
+    throw new Error(
+      data?.detail ||
+      "Failed to analyze Execution failure."
+    );
+  }
+
+
+  return data;
+}

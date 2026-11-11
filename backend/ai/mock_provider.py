@@ -23,6 +23,10 @@ class MockAIProvider(AIProvider):
             return self._automation_code(
                 user_prompt
             )
+        if task == "failure_analysis":
+            return self._failure_analysis(
+                user_prompt
+            )
 
         return {
             "provider": "mock",
@@ -720,3 +724,142 @@ test('Generated QualiAgent test', async ({ page }) => {
   await expect(page).toHaveTitle(/.+/);
 });
 """
+
+    def _failure_analysis(
+        self,
+        user_prompt
+    ):
+
+        prompt = str(
+            user_prompt or ""
+        ).lower()
+
+
+        if (
+            "locator" in prompt
+            or
+            "heading" in prompt
+            or
+            "selector" in prompt
+        ):
+
+            return {
+                "classification":
+                    "automation_failure",
+
+                "confidence":
+                    0.90,
+
+                "summary": (
+                    "The execution evidence "
+                    "indicates a likely automation "
+                    "assertion or locator problem."
+                ),
+
+                "evidence": [
+                    (
+                        "The automated execution "
+                        "failed."
+                    ),
+                    (
+                        "The sanitized evidence "
+                        "contains locator, selector, "
+                        "or heading-related failure "
+                        "information."
+                    )
+                ],
+
+                "likely_cause": (
+                    "The automation appears to "
+                    "depend on an assertion or "
+                    "locator that does not match "
+                    "the observed application "
+                    "semantics."
+                ),
+
+                "recommendation_type":
+                    "update_automation",
+
+                "recommended_action": (
+                    "Review the failing assertion "
+                    "and create a new DRAFT "
+                    "automation version if the "
+                    "application behaviour itself "
+                    "is correct."
+                ),
+
+                "suggested_change_applicable":
+                    True,
+
+                "suggested_change_rationale": (
+                    "A safer assertion should use "
+                    "stable application behaviour "
+                    "rather than a brittle locator."
+                ),
+
+                "current_code_excerpt":
+                    None,
+
+                "suggested_code_excerpt":
+                    None,
+
+                "full_replacement_code":
+                    None
+            }
+
+
+        return {
+            "classification":
+                "unknown",
+
+            "confidence":
+                0.50,
+
+            "summary": (
+                "The available sanitized evidence "
+                "does not provide enough "
+                "information for a reliable "
+                "classification."
+            ),
+
+            "evidence": [
+                (
+                    "The execution has a FAILED "
+                    "or ERROR status."
+                )
+            ],
+
+            "likely_cause": (
+                "The root cause cannot be "
+                "determined confidently from the "
+                "available evidence."
+            ),
+
+            "recommendation_type":
+                "manual_investigation",
+
+            "recommended_action": (
+                "Review the execution logs and "
+                "available evidence manually "
+                "before changing automation or "
+                "application code."
+            ),
+
+            "suggested_change_applicable":
+                False,
+
+            "suggested_change_rationale": (
+                "There is insufficient evidence "
+                "to recommend an automation "
+                "change safely."
+            ),
+
+            "current_code_excerpt":
+                None,
+
+            "suggested_code_excerpt":
+                None,
+
+            "full_replacement_code":
+                None
+        }
