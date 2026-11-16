@@ -1706,3 +1706,49 @@ export async function analyzeExecutionFailure(
 
   return data;
 }
+
+export async function createFailureSuggestionDraft(
+  executionId,
+  request
+) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/executions/${executionId}/failure-analysis/draft`,
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type":
+          "application/json"
+      },
+
+      body: JSON.stringify(
+        request
+      )
+    }
+  );
+
+
+  let data;
+
+
+  try {
+
+    data = await response.json();
+
+  } catch {
+
+    data = null;
+  }
+
+
+  if (!response.ok) {
+
+    throw new Error(
+      data?.detail ||
+      "Failed to create Draft Automation."
+    );
+  }
+
+
+  return data;
+}

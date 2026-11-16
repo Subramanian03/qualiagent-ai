@@ -63,6 +63,7 @@ import {
   createAIUpdatedAutomation,
   getProjectReleaseQuality,
   analyzeExecutionFailure,
+  createFailureSuggestionDraft,
   downloadProjectReleaseQualityPdf,
   downloadProjectReleaseQualityExcel,
 } from "./services/api";
@@ -353,6 +354,23 @@ const [
   failureAnalysisError,
   setFailureAnalysisError
 ] = useState("");
+
+  const [
+  failureDraftCreating,
+  setFailureDraftCreating
+] = useState(false);
+
+
+const [
+  failureDraftError,
+  setFailureDraftError
+] = useState("");
+
+
+const [
+  failureDraftResult,
+  setFailureDraftResult
+] = useState(null);
 
   const [projectQualitySummary,setProjectQualitySummary] = useState(null);
 
@@ -2748,6 +2766,17 @@ setFailureAnalysisError(
 setFailureAnalysisLoading(
   false
 );
+setFailureDraftCreating(
+  false
+);
+
+setFailureDraftError(
+  ""
+);
+
+setFailureDraftResult(
+  null
+);
 
   if (historyScreenshotUrl) {
     URL.revokeObjectURL(
@@ -2892,6 +2921,17 @@ setFailureAnalysisError(
 setFailureAnalysisLoading(
   false
 );
+setFailureDraftCreating(
+  false
+);
+
+setFailureDraftError(
+  ""
+);
+
+setFailureDraftResult(
+  null
+);
 }
 
   async function handleAnalyzeExecutionFailure() {
@@ -2943,6 +2983,13 @@ setFailureAnalysisLoading(
     setFailureAnalysis(
       null
     );
+    setFailureDraftError(
+  ""
+);
+
+setFailureDraftResult(
+  null
+);
 
 
     const result =
@@ -2972,6 +3019,151 @@ setFailureAnalysisLoading(
   } finally {
 
     setFailureAnalysisLoading(
+      false
+    );
+  }
+}
+
+  async function handleCreateFailureDraft(
+  draftInput
+) {
+  const execution =
+    selectedHistoryExecution;
+
+
+  if (!execution) {
+
+    setFailureDraftError(
+      "No Execution is selected."
+    );
+
+    return;
+  }
+
+
+  if (!failureAnalysis) {
+
+    setFailureDraftError(
+      "Analyze the failure before creating a Draft Automation."
+    );
+
+    return;
+  }
+
+
+  const parentAutomationId =
+    failureAnalysis
+      .automation_version_id;
+
+
+  if (
+    parentAutomationId === null ||
+    parentAutomationId === undefined
+  ) {
+
+    setFailureDraftError(
+      "The analysis does not identify a frozen parent Automation."
+    );
+
+    return;
+  }
+
+
+  const code = String(
+    draftInput?.code ||
+    ""
+  ).trim();
+
+
+  const rationale = String(
+    draftInput?.rationale ||
+    ""
+  ).trim();
+
+
+  if (!code) {
+
+    setFailureDraftError(
+      "Complete Automation code is required."
+    );
+
+    return;
+  }
+
+
+  if (!rationale) {
+
+    setFailureDraftError(
+      "A rationale is required."
+    );
+
+    return;
+  }
+
+
+  try {
+
+    setFailureDraftCreating(
+      true
+    );
+
+    setFailureDraftError(
+      ""
+    );
+
+    setFailureDraftResult(
+      null
+    );
+
+
+    const result =
+      await createFailureSuggestionDraft(
+        execution.id,
+        {
+          source_execution_id:
+            execution.id,
+
+          parent_automation_version_id:
+            parentAutomationId,
+
+          code,
+
+          rationale,
+
+          classification:
+            failureAnalysis
+              .finding
+              .classification,
+
+          recommendation_type:
+            failureAnalysis
+              .finding
+              .recommendation_type
+        }
+      );
+
+
+    setFailureDraftResult(
+      result
+    );
+
+
+  } catch (err) {
+
+    setFailureDraftResult(
+      null
+    );
+
+
+    setFailureDraftError(
+      err.message ||
+      "Unable to create Draft Automation."
+    );
+
+
+  } finally {
+
+    setFailureDraftCreating(
       false
     );
   }
@@ -6626,6 +6818,22 @@ failureAnalysisLoading={
 
 failureAnalysisError={
   failureAnalysisError
+}
+
+failureDraftCreating={
+  failureDraftCreating
+}
+
+failureDraftError={
+  failureDraftError
+}
+
+failureDraftResult={
+  failureDraftResult
+}
+
+onCreateFailureDraft={
+  handleCreateFailureDraft
 }
 
 onAnalyzeFailure={

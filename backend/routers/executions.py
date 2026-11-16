@@ -68,7 +68,13 @@ from backend.automation_engines.errors import (
 )
 
 from backend.models.failure_analysis import (
+    CreateFailureSuggestionDraftRequest,
+    CreateFailureSuggestionDraftResponse,
     FailureAnalysisResponse,
+)
+from backend.services.failure_suggestion_draft_service import (
+    FailureSuggestionDraftError,
+    create_failure_suggestion_draft,
 )
 
 from backend.services.failure_analysis_service import (
@@ -687,4 +693,62 @@ def analyze_execution_failure_endpoint(
         raise HTTPException(
             status_code=422,
             detail=message
+        ) from exc
+
+@router.post(
+    "/{execution_id}/failure-analysis/draft",
+    response_model=(
+        CreateFailureSuggestionDraftResponse
+    )
+)
+def create_failure_suggestion_draft_endpoint(
+    execution_id: int,
+    request: (
+        CreateFailureSuggestionDraftRequest
+    ),
+    db: Session = Depends(get_db)
+):
+
+    try:
+
+        return (
+            create_failure_suggestion_draft(
+                db,
+                execution_id=execution_id,
+                request=request
+            )
+        )
+
+
+    except FailureSuggestionDraftError as exc:
+
+        message = str(
+            exc
+        )
+
+
+        if message in {
+            "Execution not found",
+            "Parent Automation version not found",
+        }:
+
+            raise HTTPException(
+                status_code=404,
+                detail=message
+            ) from exc
+
+
+        raise HTTPException(
+            status_code=422,
+            detail=message
+        ) from exc
+
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=422,
+            detail=str(
+                exc
+            )
         ) from exc

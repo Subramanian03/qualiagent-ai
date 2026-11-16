@@ -1,3 +1,8 @@
+import {
+  useEffect,
+  useState
+} from "react";
+
 function ExecutionDetailsModal({
   execution,
   screenshotUrl,
@@ -5,6 +10,10 @@ function ExecutionDetailsModal({
   failureAnalysis,
 failureAnalysisLoading = false,
 failureAnalysisError = "",
+failureDraftCreating = false,
+failureDraftError = "",
+failureDraftResult,
+onCreateFailureDraft,
 onAnalyzeFailure,
   onViewScreenshot,
   onDownloadTrace,
@@ -15,9 +24,10 @@ onAnalyzeFailure,
   }
 
 
-  const status =
-    execution.status ||
-    "unknown";
+  const status = String(
+  execution.status ||
+  "unknown"
+).trim().toLowerCase();
 
 
   const duration =
@@ -53,10 +63,8 @@ onAnalyzeFailure,
     return date.toLocaleString();
   }
 
-  const executionStatus = String(
-  execution?.status ||
-  ""
-).trim().toLowerCase();
+  const executionStatus =
+  status;
 
 
 const canAnalyzeFailure =
@@ -382,6 +390,22 @@ const canAnalyzeFailure =
     analysis={
       failureAnalysis
     }
+
+    draftCreating={
+      failureDraftCreating
+    }
+
+    draftError={
+      failureDraftError
+    }
+
+    draftResult={
+      failureDraftResult
+    }
+
+    onCreateDraft={
+      onCreateFailureDraft
+    }
   />
 
 )}
@@ -431,14 +455,88 @@ function ExecutionDetailItem({
 }
 
 function FailureAnalysisPanel({
-  analysis
+  analysis,
+  draftCreating = false,
+  draftError = "",
+  draftResult,
+  onCreateDraft
 }) {
   const finding =
     analysis?.finding;
 
 
   const suggestion =
-    analysis?.suggested_automation_change;
+    analysis
+      ?.suggested_automation_change;
+
+
+  const initialCode =
+    suggestion
+      ?.full_replacement_code ||
+    suggestion
+      ?.suggested_code_excerpt ||
+    "";
+
+
+  const initialRationale =
+    suggestion?.rationale ||
+    "";
+
+
+  const hasFullReplacement =
+    Boolean(
+      suggestion
+        ?.full_replacement_code
+        ?.trim()
+    );
+
+
+  const [
+    draftCode,
+    setDraftCode
+  ] = useState(
+    initialCode
+  );
+
+
+  const [
+    draftRationale,
+    setDraftRationale
+  ] = useState(
+    initialRationale
+  );
+
+
+  const [
+    localDraftError,
+    setLocalDraftError
+  ] = useState("");
+
+
+  useEffect(
+    () => {
+
+      setDraftCode(
+        initialCode
+      );
+
+
+      setDraftRationale(
+        initialRationale
+      );
+
+
+      setLocalDraftError(
+        ""
+      );
+
+    },
+    [
+      analysis?.execution_id,
+      initialCode,
+      initialRationale
+    ]
+  );
 
 
   const classification = String(
@@ -482,6 +580,76 @@ function FailureAnalysisPanel({
       ? finding.evidence
       : [];
 
+  function handleCreateDraftSubmit(
+  event
+) {
+  event.preventDefault();
+
+
+  if (
+    draftCreating ||
+    !onCreateDraft ||
+    draftResult
+  ) {
+    return;
+  }
+
+
+  const reviewedCode =
+    draftCode.trim();
+
+
+  const reviewedRationale =
+    draftRationale.trim();
+
+
+  if (!reviewedCode) {
+
+    setLocalDraftError(
+      "Complete Automation code is required."
+    );
+
+    return;
+  }
+
+
+  if (!reviewedRationale) {
+
+    setLocalDraftError(
+      "A change rationale is required."
+    );
+
+    return;
+  }
+
+
+  if (
+    !hasFullReplacement &&
+    reviewedCode ===
+      initialCode.trim()
+  ) {
+
+    setLocalDraftError(
+      "The AI returned only a code excerpt. Replace the excerpt with the complete reviewed Playwright test before creating a Draft."
+    );
+
+    return;
+  }
+
+
+  setLocalDraftError(
+    ""
+  );
+
+
+  onCreateDraft({
+    code:
+      reviewedCode,
+
+    rationale:
+      reviewedRationale
+  });
+}
 
   return (
     <section className="failure-analysis-panel">
@@ -715,6 +883,249 @@ function FailureAnalysisPanel({
         </div>
 
       )}
+
+      {suggestion?.applicable && (
+
+  <form
+    className="failure-draft-form"
+    onSubmit={
+      handleCreateDraftSubmit
+    }
+  >
+
+    <div className="failure-draft-heading">
+
+      <div>
+
+        <span className="section-label">
+          CREATE DRAFT AUTOMATION
+        </span>
+
+        <h4>
+          Review complete replacement code
+        </h4>
+
+      </div>
+
+
+      <span className="failure-draft-parent">
+        Parent Automation
+        {" "}
+        #{analysis.automation_version_id}
+      </span>
+
+    </div>
+
+
+    {!hasFullReplacement && (
+
+      <div className="failure-draft-warning">
+
+        <strong>
+          Complete code required
+        </strong>
+
+        <p>
+          The AI returned only a suggested
+          excerpt. Review the frozen
+          Automation and provide a complete,
+          executable Playwright test before
+          creating the new Draft version.
+        </p>
+
+      </div>
+
+    )}
+
+
+    <div className="form-field">
+
+      <label htmlFor="failure-draft-rationale">
+        Change rationale
+      </label>
+
+      <textarea
+        id="failure-draft-rationale"
+        value={
+          draftRationale
+        }
+        disabled={
+          draftCreating ||
+          Boolean(
+            draftResult
+          )
+        }
+        rows={4}
+        onChange={
+  (event) => {
+
+    setDraftRationale(
+      event.target.value
+    );
+
+    setLocalDraftError(
+      ""
+    );
+  }
+}
+      />
+
+    </div>
+
+
+    <div className="form-field">
+
+      <label htmlFor="failure-draft-code">
+        Complete Automation code
+      </label>
+
+      <textarea
+        id="failure-draft-code"
+        className="failure-draft-code-editor"
+        value={
+          draftCode
+        }
+        disabled={
+          draftCreating ||
+          Boolean(
+            draftResult
+          )
+        }
+        rows={22}
+        spellCheck="false"
+        onChange={
+  (event) => {
+
+    setDraftCode(
+      event.target.value
+    );
+
+    setLocalDraftError(
+      ""
+    );
+  }
+}
+      />
+
+    </div>
+
+
+    <div className="failure-draft-safety">
+
+      <strong>
+        Human approval remains required
+      </strong>
+
+      <p>
+        Creating this Draft will not change
+        Execution #{analysis.execution_id},
+        overwrite Automation
+        {" "}
+        #{analysis.automation_version_id},
+        or mark the new version READY.
+      </p>
+
+    </div>
+    
+
+    {localDraftError && (
+
+  <div
+    className="failure-analysis-error"
+    role="alert"
+  >
+    {localDraftError}
+  </div>
+
+)}
+
+    {draftError && (
+
+      <div
+        className="failure-analysis-error"
+        role="alert"
+      >
+        {draftError}
+      </div>
+
+    )}
+
+
+    {draftResult && (
+
+      <div
+        className="failure-draft-success"
+        role="status"
+      >
+
+        <strong>
+          Draft Automation created
+        </strong>
+
+        <p>
+          Automation
+          {" "}
+          #{draftResult
+            .created_automation_version_id}
+          {" "}
+          was created as version
+          {" "}
+          {draftResult
+            .created_version_number}
+          {" "}
+          with status
+          {" "}
+          {String(
+            draftResult.status ||
+            "draft"
+          ).toUpperCase()}.
+        </p>
+
+        <p>
+          Parent Automation
+          {" "}
+          #{draftResult
+            .parent_automation_version_id}
+          {" "}
+          and source Execution
+          {" "}
+          #{draftResult
+            .source_execution_id}
+          {" "}
+          remain unchanged.
+        </p>
+
+      </div>
+
+    )}
+
+
+    {!draftResult && (
+
+      <div className="failure-draft-actions">
+
+        <button
+          type="submit"
+          className="primary-button"
+          disabled={
+            draftCreating ||
+            !onCreateDraft ||
+            !draftCode.trim() ||
+            !draftRationale.trim()
+          }
+        >
+          {draftCreating
+            ? "Creating Draft..."
+            : "Create Draft Automation"}
+        </button>
+
+      </div>
+
+    )}
+
+  </form>
+
+)}
 
 
       <div className="failure-analysis-provider">
