@@ -554,6 +554,10 @@ def create_human_edited_automation_version(
             parent_version_id=(
                 source_automation.id
             ),
+            source_execution_id=(
+    source_automation
+    .source_execution_id
+),
         )
     )
 
@@ -747,6 +751,10 @@ def create_ai_updated_automation_version(
         parent_version_id=(
             source_automation.id
         ),
+        source_execution_id=(
+    source_automation
+    .source_execution_id
+),
     )
 
 

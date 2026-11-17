@@ -14,6 +14,7 @@ failureDraftCreating = false,
 failureDraftError = "",
 failureDraftResult,
 onCreateFailureDraft,
+onOpenFailureDraftForReview,
 onAnalyzeFailure,
   onViewScreenshot,
   onDownloadTrace,
@@ -406,6 +407,10 @@ const canAnalyzeFailure =
     onCreateDraft={
       onCreateFailureDraft
     }
+
+    onOpenDraftForReview={
+  onOpenFailureDraftForReview
+}
   />
 
 )}
@@ -459,7 +464,8 @@ function FailureAnalysisPanel({
   draftCreating = false,
   draftError = "",
   draftResult,
-  onCreateDraft
+  onCreateDraft,
+  onOpenDraftForReview
 }) {
   const finding =
     analysis?.finding;
@@ -1095,7 +1101,34 @@ function FailureAnalysisPanel({
           remain unchanged.
         </p>
 
+        <div className="failure-draft-success-actions">
+
+  <button
+    type="button"
+    className="primary-button"
+    disabled={
+      !onOpenDraftForReview
+    }
+    onClick={() => {
+
+      if (
+        onOpenDraftForReview
+      ) {
+
+        onOpenDraftForReview(
+          draftResult
+        );
+      }
+    }}
+  >
+    Open Draft for Review
+  </button>
+
+</div>
+
       </div>
+
+      
 
     )}
 

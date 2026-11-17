@@ -289,6 +289,10 @@ def create_failure_suggestion_draft(
                 parent_automation.id
             ),
 
+            source_execution_id=(
+    execution.id
+),
+
             created_by=None,
 
             reviewed_by=None,
@@ -329,6 +333,10 @@ def create_failure_suggestion_draft(
             parent_automation_version_id=(
                 parent_automation.id
             ),
+
+            test_case_db_id=(
+    parent_automation.test_case_db_id
+),
 
             created_automation_version_id=(
                 new_automation.id

@@ -41,6 +41,8 @@ class AutomationScriptResponse(
     source: str | None = None
 
     parent_version_id: int | None = None
+    
+    source_execution_id: int | None = None
 
     change_summary: str | None = None
 

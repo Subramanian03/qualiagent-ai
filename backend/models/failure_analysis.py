@@ -252,6 +252,8 @@ class CreateFailureSuggestionDraftResponse(
 
     parent_automation_version_id: int
 
+    test_case_db_id: int
+
     created_automation_version_id: int
 
     created_version_number: int

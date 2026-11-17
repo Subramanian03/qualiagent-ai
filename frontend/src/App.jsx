@@ -3169,6 +3169,142 @@ setFailureDraftResult(
   }
 }
 
+  async function handleOpenFailureDraftForReview(
+  draftResult
+) {
+  const testCaseDbId =
+    Number(
+      draftResult?.test_case_db_id
+    );
+
+
+  const createdAutomationId =
+    Number(
+      draftResult
+        ?.created_automation_version_id
+    );
+
+
+  if (
+    !Number.isInteger(
+      testCaseDbId
+    ) ||
+    !Number.isInteger(
+      createdAutomationId
+    )
+  ) {
+
+    setFailureDraftError(
+      "The created Draft Automation could not be opened."
+    );
+
+    return;
+  }
+
+
+  const testCase =
+    workspaceTestCases.find(
+      (item) =>
+        Number(
+          item.id
+        ) ===
+        testCaseDbId
+    );
+
+
+  if (!testCase) {
+
+    setFailureDraftError(
+      "The parent Test Case could not be found in the current Project."
+    );
+
+    return;
+  }
+
+
+  try {
+
+    setError("");
+
+
+    const history =
+      await getAutomationHistory(
+        testCaseDbId
+      );
+
+
+    const safeHistory =
+      Array.isArray(
+        history
+      )
+        ? history
+        : [];
+
+
+    const createdDraft =
+      safeHistory.find(
+        (automation) =>
+          Number(
+            automation.id
+          ) ===
+          createdAutomationId
+      );
+
+
+    if (!createdDraft) {
+
+      throw new Error(
+        "The newly created Draft was not found in Automation history."
+      );
+    }
+
+
+    setAutomationHistory(
+      safeHistory
+    );
+
+
+    setAutomationByTestCase(
+      (current) => ({
+        ...current,
+
+        [testCase.id]:
+          createdDraft
+      })
+    );
+
+
+    setSelectedAutomationTestCase(
+      testCase
+    );
+
+
+    setSelectedAutomation(
+      createdDraft
+    );
+
+
+    handleCloseExecutionDetails();
+
+
+    setCurrentPage(
+      "automation"
+    );
+
+
+    setShowAutomationModal(
+      true
+    );
+
+
+  } catch (err) {
+
+    setFailureDraftError(
+      err.message ||
+      "Unable to open Draft Automation for review."
+    );
+  }
+}
   async function loadAutomationHistory(
   testCaseId
 ) {
@@ -6834,6 +6970,10 @@ failureDraftResult={
 
 onCreateFailureDraft={
   handleCreateFailureDraft
+}
+
+onOpenFailureDraftForReview={
+  handleOpenFailureDraftForReview
 }
 
 onAnalyzeFailure={

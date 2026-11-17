@@ -4488,3 +4488,25 @@
     width: 100%;
   }
 }
+
+.failure-draft-success-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+
+  margin-top: 12px;
+}
+
+
+@media (
+  max-width: 640px
+) {
+  .failure-draft-success-actions {
+    flex-direction: column;
+  }
+
+
+  .failure-draft-success-actions button {
+    width: 100%;
+  }
+}

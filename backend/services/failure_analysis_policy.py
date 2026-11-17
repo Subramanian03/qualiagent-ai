@@ -101,7 +101,7 @@ COOKIE_PATTERN = re.compile(
 
 
 URL_CREDENTIAL_PATTERN = re.compile(
-    r"""(?i)
+    r"""(?ix)
     (https?://)
     ([^/\s:@]+)
     :

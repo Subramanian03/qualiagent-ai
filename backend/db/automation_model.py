@@ -99,6 +99,15 @@ class AutomationScriptDB(Base):
         nullable=True
     )
 
+    source_execution_id: Mapped[
+    int | None
+] = mapped_column(
+    ForeignKey(
+        "executions.id"
+    ),
+    nullable=True
+)
+
 
     created_by: Mapped[
         int | None
@@ -138,22 +147,19 @@ class AutomationScriptDB(Base):
         default=datetime.utcnow
     )
 
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
-    )
-
     test_case = relationship(
         "TestCaseDB",
         back_populates="automation_scripts"
     )
 
     executions = relationship(
-        "ExecutionDB",
-        back_populates="automation_script",
-        cascade="all, delete-orphan"
-    )
+    "ExecutionDB",
+    back_populates="automation_script",
+    foreign_keys=(
+        "ExecutionDB.automation_script_id"
+    ),
+    cascade="all, delete-orphan"
+)
 
     parent_version = relationship(
         "AutomationScriptDB",

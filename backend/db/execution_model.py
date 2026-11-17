@@ -103,6 +103,9 @@ class ExecutionDB(Base):
     )
 
     automation_script = relationship(
-        "AutomationScriptDB",
-        back_populates="executions"
-    )
+    "AutomationScriptDB",
+    back_populates="executions",
+    foreign_keys=[
+        automation_script_id
+    ]
+)
