@@ -6,6 +6,7 @@ from sqlalchemy import ForeignKey
 from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Text
+from sqlalchemy import Index
 
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
@@ -18,11 +19,29 @@ class AutomationScriptDB(Base):
 
     __tablename__ = "automation_scripts"
 
+    __table_args__ = (
+    Index(
+        "idx_automation_scripts_status",
+        "status"
+    ),
+
+    Index(
+        "idx_automation_scripts_parent_version",
+        "parent_version_id"
+    ),
+
+    Index(
+        "idx_automation_scripts_test_case_version",
+        "test_case_db_id",
+        "version"
+    ),
+)
+
     id: Mapped[int] = mapped_column(
-        Integer,
-        primary_key=True,
-        index=True
-    )
+    Integer,
+    primary_key=True,
+    index=True
+)
 
     test_case_db_id: Mapped[int] = mapped_column(
         ForeignKey("test_cases.id"),
@@ -134,13 +153,13 @@ class AutomationScriptDB(Base):
 
 
     updated_at: Mapped[
-        datetime | None
-    ] = mapped_column(
-        DateTime,
-        nullable=True,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
-    )
+    datetime
+] = mapped_column(
+    DateTime,
+    nullable=False,
+    default=datetime.utcnow,
+    onupdate=datetime.utcnow
+)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,

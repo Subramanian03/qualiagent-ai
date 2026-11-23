@@ -48,16 +48,6 @@ class TestCaseDB(Base):
         nullable=False
     )
 
-    test_scenario_db_id: Mapped[
-    int | None
-] = mapped_column(
-    ForeignKey(
-        "test_scenarios.id"
-    ),
-    nullable=True,
-    index=True
-)
-
     title: Mapped[str] = mapped_column(
         String(300),
         nullable=False

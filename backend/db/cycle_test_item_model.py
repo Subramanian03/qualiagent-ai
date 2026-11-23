@@ -5,6 +5,7 @@ from sqlalchemy import ForeignKey
 from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Text
+from sqlalchemy import Index
 
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
@@ -20,12 +21,37 @@ class CycleTestItemDB(
     __tablename__ = (
         "cycle_test_items"
     )
+    __table_args__ = (
+    Index(
+        "idx_cycle_items_cycle",
+        "cycle_id"
+    ),
+
+    Index(
+        "idx_cycle_items_test_case",
+        "test_case_id"
+    ),
+
+    Index(
+        "idx_cycle_items_automation",
+        "automation_version_id"
+    ),
+
+    Index(
+        "idx_cycle_items_status",
+        "status"
+    ),
+
+    Index(
+        "idx_cycle_items_execution",
+        "execution_id"
+    ),
+)
 
 
     id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
-        index=True
     )
 
 
@@ -34,7 +60,6 @@ class CycleTestItemDB(
             "test_cycles.id"
         ),
         nullable=False,
-        index=True
     )
 
 
@@ -43,7 +68,6 @@ class CycleTestItemDB(
             "test_cases.id"
         ),
         nullable=False,
-        index=True
     )
 
 
@@ -60,7 +84,6 @@ class CycleTestItemDB(
             "automation_scripts.id"
         ),
         nullable=True,
-        index=True
     )
 
     execution_id: Mapped[
@@ -70,7 +93,6 @@ class CycleTestItemDB(
             "executions.id"
         ),
         nullable=True,
-        index=True
     )
 
 
@@ -78,7 +100,6 @@ class CycleTestItemDB(
         String(30),
         nullable=False,
         default="not_run",
-        index=True
     )
 
 

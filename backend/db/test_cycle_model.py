@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
 from sqlalchemy import Integer
+from sqlalchemy import Index
 from sqlalchemy import String
 
 from sqlalchemy.orm import Mapped
@@ -18,11 +19,22 @@ class TestCycleDB(
 
     __tablename__ = "test_cycles"
 
+    __table_args__ = (
+    Index(
+        "idx_test_cycles_project",
+        "project_id"
+    ),
+
+    Index(
+        "idx_test_cycles_status",
+        "status"
+    ),
+)
+
 
     id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
-        index=True
     )
 
 
@@ -31,7 +43,6 @@ class TestCycleDB(
             "projects.id"
         ),
         nullable=False,
-        index=True
     )
 
 
@@ -61,7 +72,6 @@ class TestCycleDB(
         String(30),
         nullable=False,
         default="draft",
-        index=True
     )
 
 
