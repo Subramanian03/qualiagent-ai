@@ -3908,17 +3908,19 @@ setFailureDraftResult(
 
 
     const [
-      detail,
-      summary
-    ] = await Promise.all([
-      getTestCycle(
-        cycle.id
-      ),
+  detail,
+  summary
+] = await Promise.all([
+  getTestCycle(
+    selectedProject.id,
+    cycle.id
+  ),
 
-      getTestCycleSummary(
-        cycle.id
-      )
-    ]);
+  getTestCycleSummary(
+    selectedProject.id,
+    cycle.id
+  )
+]);
 
 
     setSelectedCycle(
@@ -3976,17 +3978,19 @@ setFailureDraftResult(
 
 
     const [
-      detail,
-      summary
-    ] = await Promise.all([
-      getTestCycle(
-        selectedCycle.id
-      ),
+  detail,
+  summary
+] = await Promise.all([
+  getTestCycle(
+    selectedProject.id,
+    selectedCycle.id
+  ),
 
-      getTestCycleSummary(
-        selectedCycle.id
-      )
-    ]);
+  getTestCycleSummary(
+    selectedProject.id,
+    selectedCycle.id
+  )
+]);
 
 
     setSelectedCycle(
@@ -4018,7 +4022,10 @@ setFailureDraftResult(
   async function handleCycleStatusChange(
   status
 ) {
-  if (!selectedCycle?.id) {
+    if (
+    !selectedProject?.id ||
+    !selectedCycle?.id
+  ) {
     return;
   }
 
@@ -4034,6 +4041,7 @@ setFailureDraftResult(
 
     const updated =
       await updateTestCycleStatus(
+        selectedProject.id,
         selectedCycle.id,
         status
       );
@@ -4044,10 +4052,11 @@ setFailureDraftResult(
     );
 
 
-    const updatedSummary =
-      await getTestCycleSummary(
-        selectedCycle.id
-      );
+  const updatedSummary =
+  await getTestCycleSummary(
+    selectedProject.id,
+    selectedCycle.id
+  );
 
 
     setCycleSummary(
@@ -4164,7 +4173,10 @@ function handleManualResultFormChange(
   event.preventDefault();
 
 
-  if (!selectedManualCycleItem) {
+  if (
+    !selectedProject?.id ||
+    !selectedManualCycleItem
+  ) {
     return;
   }
 
@@ -4179,6 +4191,7 @@ function handleManualResultFormChange(
 
 
     await updateManualCycleResult(
+      selectedProject.id,
       selectedManualCycleItem.id,
       {
         status:
@@ -4233,6 +4246,12 @@ function handleManualResultFormChange(
   async function handlePrepareCycleAutomation(
   item
 ) {
+  if (
+    !selectedProject?.id ||
+    !item?.id
+  ) {
+    return;
+  }
   try {
 
     setPreparingCycleAutomationItemId(
@@ -4244,6 +4263,7 @@ function handleManualResultFormChange(
 
     const schema =
       await getCycleAutomationInputs(
+        selectedProject.id,
         item.id
       );
 
@@ -4363,6 +4383,7 @@ function closeCycleAutomationModal() {
 
 
   if (
+    !selectedProject?.id ||
     !selectedAutomationCycleItem ||
     !cycleAutomationSchema
   ) {
@@ -4385,6 +4406,7 @@ function closeCycleAutomationModal() {
 
 
     await runCycleAutomation(
+      selectedProject.id,
       selectedAutomationCycleItem.id,
       submittedValues
     );

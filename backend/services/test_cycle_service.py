@@ -33,6 +33,11 @@ from backend.models.test_cycle import (
     TestCycleCreate,
 )
 
+from backend.services.project_isolation_service import (
+    ProjectIsolationError,
+    require_cycle_item_links_in_project,
+)
+
 def has_persisted_input_schema(
     automation
 ) -> bool:
@@ -502,6 +507,31 @@ def create_test_cycle(
                 ]
             )
 
+            try:
+                require_cycle_item_links_in_project(
+                    db,
+                    project_id=project.id,
+                    cycle_id=cycle.id,
+                    test_case_id=(
+                        prepared_item[
+                            "test_case"
+                        ].id
+                    ),
+                    automation_version_id=(
+                        automation_version.id
+                        if automation_version
+                        is not None
+                        else None
+                    ),
+                    execution_id=None
+                )
+
+            except ProjectIsolationError:
+                raise TestCycleValidationError(
+                    "Selected Test Case or "
+                    "automation version does not "
+                    "belong to this Project"
+                )
 
             item = CycleTestItemDB(
                 cycle_id=cycle.id,

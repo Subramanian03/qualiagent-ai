@@ -1167,10 +1167,11 @@ export async function createTestCycle(
 
 
 export async function getTestCycle(
+  projectId,
   cycleId
 ) {
   const response = await fetch(
-    `${API_BASE_URL}/api/test-cycles/${cycleId}`
+    `${API_BASE_URL}/api/projects/${projectId}/test-cycles/${cycleId}`
   );
 
 
@@ -1197,10 +1198,11 @@ export async function getTestCycle(
 }
 
 export async function getTestCycleSummary(
+  projectId,
   cycleId
 ) {
   const response = await fetch(
-    `${API_BASE_URL}/api/test-cycles/${cycleId}/summary`
+    `${API_BASE_URL}/api/projects/${projectId}/test-cycles/${cycleId}/summary`
   );
 
 
@@ -1227,11 +1229,12 @@ export async function getTestCycleSummary(
 
 
 export async function updateTestCycleStatus(
+  projectId,
   cycleId,
   status
 ) {
   const response = await fetch(
-    `${API_BASE_URL}/api/test-cycles/${cycleId}/status`,
+    `${API_BASE_URL}/api/projects/${projectId}/test-cycles/${cycleId}/status`,
     {
       method: "PATCH",
 
@@ -1270,11 +1273,12 @@ export async function updateTestCycleStatus(
 
 
 export async function updateManualCycleResult(
+  projectId,
   cycleItemId,
   resultData
 ) {
   const response = await fetch(
-    `${API_BASE_URL}/api/cycle-test-items/${cycleItemId}/manual-result`,
+    `${API_BASE_URL}/api/projects/${projectId}/cycle-test-items/${cycleItemId}/manual-result`,
     {
       method: "PATCH",
 
@@ -1324,10 +1328,11 @@ export async function updateManualCycleResult(
 
 
 export async function getCycleAutomationInputs(
+  projectId,
   cycleItemId
 ) {
   const response = await fetch(
-    `${API_BASE_URL}/api/cycle-test-items/${cycleItemId}/automation-inputs`
+    `${API_BASE_URL}/api/projects/${projectId}/cycle-test-items/${cycleItemId}/automation-inputs`
   );
 
 
@@ -1354,11 +1359,12 @@ export async function getCycleAutomationInputs(
 
 
 export async function runCycleAutomation(
+  projectId,
   cycleItemId,
   values
 ) {
   const response = await fetch(
-    `${API_BASE_URL}/api/cycle-test-items/${cycleItemId}/run-automation`,
+    `${API_BASE_URL}/api/projects/${projectId}/cycle-test-items/${cycleItemId}/run-automation`,
     {
       method: "POST",
 

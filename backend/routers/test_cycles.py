@@ -60,6 +60,11 @@ from backend.services.cycle_automation_execution_service import (
     CycleAutomationExecutionError,
     execute_automated_cycle_item,
 )
+from backend.services.project_isolation_service import (
+    ProjectIsolationError,
+    require_test_cycle_in_project,
+    require_cycle_test_item_in_project,
+)
 
 router = APIRouter(
     tags=[
@@ -154,13 +159,28 @@ def list_project_test_cycles_endpoint(
 
 
 @router.get(
-    "/api/test-cycles/{cycle_id}",
+    "/api/projects/{project_id}/test-cycles/{cycle_id}",
     response_model=TestCycleResponse
 )
 def get_test_cycle_endpoint(
+    project_id: int,
     cycle_id: int,
     db: Session = Depends(get_db)
 ):
+
+    try:
+        require_test_cycle_in_project(
+            db,
+            project_id=project_id,
+            cycle_id=cycle_id
+        )
+
+    except ProjectIsolationError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Test Cycle not found"
+        ) from exc
+
 
     cycle = get_test_cycle(
         db,
@@ -179,13 +199,28 @@ def get_test_cycle_endpoint(
     return cycle
 
 @router.get(
-    "/api/test-cycles/{cycle_id}/summary",
+    "/api/projects/{project_id}/test-cycles/{cycle_id}/summary",
     response_model=TestCycleResultSummary
 )
 def get_test_cycle_summary_endpoint(
+    project_id: int,
     cycle_id: int,
     db: Session = Depends(get_db)
 ):
+
+    try:
+        require_test_cycle_in_project(
+            db,
+            project_id=project_id,
+            cycle_id=cycle_id
+        )
+
+    except ProjectIsolationError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Test Cycle not found"
+        ) from exc
+
 
     cycle = get_cycle_for_lifecycle(
         db,
@@ -206,23 +241,36 @@ def get_test_cycle_summary_endpoint(
     )
 
 @router.patch(
-    "/api/test-cycles/{cycle_id}/status",
+    "/api/projects/{project_id}/test-cycles/"
+    "{cycle_id}/status",
     response_model=TestCycleResponse
 )
 def update_test_cycle_status_endpoint(
+    project_id: int,
     cycle_id: int,
     request: TestCycleStatusUpdate,
     db: Session = Depends(get_db)
 ):
+
+    try:
+        require_test_cycle_in_project(
+            db,
+            project_id=project_id,
+            cycle_id=cycle_id
+        )
+
+    except ProjectIsolationError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Test Cycle not found"
+        ) from exc
 
     cycle = get_cycle_for_lifecycle(
         db,
         cycle_id
     )
 
-
     if cycle is None:
-
         raise HTTPException(
             status_code=404,
             detail="Test Cycle not found"
@@ -249,29 +297,33 @@ def update_test_cycle_status_endpoint(
 
 @router.patch(
     (
-        "/api/cycle-test-items/"
+        "/api/projects/{project_id}/"
+        "cycle-test-items/"
         "{cycle_item_id}/manual-result"
     ),
     response_model=CycleTestItemResponse
 )
 def update_manual_cycle_result_endpoint(
+    project_id: int,
     cycle_item_id: int,
     request: ManualCycleResultUpdate,
     db: Session = Depends(get_db)
 ):
 
-    cycle_item = get_cycle_test_item(
-        db,
-        cycle_item_id
-    )
+    try:
+        cycle_item = (
+            require_cycle_test_item_in_project(
+                db,
+                project_id=project_id,
+                cycle_item_id=cycle_item_id
+            )
+        )
 
-
-    if cycle_item is None:
-
+    except ProjectIsolationError as exc:
         raise HTTPException(
             status_code=404,
             detail="Cycle Test Item not found"
-        )
+        ) from exc
 
 
     try:
@@ -295,28 +347,32 @@ def update_manual_cycle_result_endpoint(
 
 @router.get(
     (
-        "/api/cycle-test-items/"
+        "/api/projects/{project_id}/"
+        "cycle-test-items/"
         "{cycle_item_id}/automation-inputs"
     ),
     response_model=AutomationInputSchema
 )
 def get_automated_cycle_item_inputs_endpoint(
+    project_id: int,
     cycle_item_id: int,
     db: Session = Depends(get_db)
 ):
 
-    cycle_item = get_cycle_test_item(
-        db,
-        cycle_item_id
-    )
+    try:
+        cycle_item = (
+            require_cycle_test_item_in_project(
+                db,
+                project_id=project_id,
+                cycle_item_id=cycle_item_id
+            )
+        )
 
-
-    if cycle_item is None:
-
+    except ProjectIsolationError as exc:
         raise HTTPException(
             status_code=404,
             detail="Cycle Test Item not found"
-        )
+        ) from exc
 
 
     try:
@@ -341,29 +397,33 @@ def get_automated_cycle_item_inputs_endpoint(
 
 @router.post(
     (
-        "/api/cycle-test-items/"
+        "/api/projects/{project_id}/"
+        "cycle-test-items/"
         "{cycle_item_id}/run-automation"
     ),
     response_model=CycleTestItemResponse
 )
 def run_automated_cycle_item_endpoint(
+    project_id: int,
     cycle_item_id: int,
     request: AutomatedCycleRunRequest,
     db: Session = Depends(get_db)
 ):
 
-    cycle_item = get_cycle_test_item(
-        db,
-        cycle_item_id
-    )
+    try:
+        cycle_item = (
+            require_cycle_test_item_in_project(
+                db,
+                project_id=project_id,
+                cycle_item_id=cycle_item_id
+            )
+        )
 
-
-    if cycle_item is None:
-
+    except ProjectIsolationError as exc:
         raise HTTPException(
             status_code=404,
             detail="Cycle Test Item not found"
-        )
+        ) from exc
 
 
     try:

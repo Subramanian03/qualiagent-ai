@@ -296,34 +296,6 @@ def require_test_cycle_in_project(
 
     return cycle
 
-def require_test_cycle_in_project(
-    db: Session,
-    *,
-    project_id: int,
-    cycle_id: int
-) -> TestCycleDB:
-
-    cycle = (
-        db.query(
-            TestCycleDB
-        )
-        .filter(
-            TestCycleDB.id
-            == cycle_id,
-
-            TestCycleDB.project_id
-            == project_id
-        )
-        .first()
-    )
-
-    if cycle is None:
-        raise ProjectIsolationError(
-            "Resource not found"
-        )
-
-    return cycle
-
 def require_cycle_test_item_in_project(
     db: Session,
     *,

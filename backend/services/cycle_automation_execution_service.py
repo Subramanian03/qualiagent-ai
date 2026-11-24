@@ -60,6 +60,11 @@ from backend.services.execution_service import (
     create_execution,
 )
 
+from backend.services.project_isolation_service import (
+    ProjectIsolationError,
+    require_cycle_item_links_in_project,
+)
+
 
 class CycleAutomationExecutionError(
     ValueError
@@ -351,6 +356,24 @@ def execute_automated_cycle_item(
             "does not belong to the Cycle "
             "item Test Case"
         )
+    
+    try:
+        require_cycle_item_links_in_project(
+            db,
+            project_id=project.id,
+            cycle_id=cycle.id,
+            test_case_id=cycle_item.test_case_id,
+            automation_version_id=(
+                cycle_item.automation_version_id
+            ),
+            execution_id=None
+        )
+
+    except ProjectIsolationError as exc:
+        raise CycleAutomationExecutionError(
+            "Cycle item automation links "
+            "are inconsistent"
+        ) from exc
 
 
     automation_status = normalise_text(
@@ -463,6 +486,25 @@ def execute_automated_cycle_item(
             automation.id
         )
 
+        try:
+            require_cycle_item_links_in_project(
+                db,
+                project_id=project.id,
+                cycle_id=cycle.id,
+                test_case_id=(
+                    cycle_item.test_case_id
+                ),
+                automation_version_id=(
+                    cycle_item.automation_version_id
+                ),
+                execution_id=execution.id
+            )
+
+        except ProjectIsolationError as exc:
+            raise CycleAutomationExecutionError(
+                "Created Execution does not "
+                "match the Cycle item links"
+            ) from exc
 
         cycle_item.execution_id = (
             execution.id
@@ -542,6 +584,20 @@ def execute_automated_cycle_item(
 
 
                 if current_item is not None:
+
+                    require_cycle_item_links_in_project(
+                        db,
+                        project_id=project.id,
+                        cycle_id=current_item.cycle_id,
+                        test_case_id=(
+                            current_item.test_case_id
+                        ),
+                        automation_version_id=(
+                            current_item
+                            .automation_version_id
+                        ),
+                        execution_id=execution.id
+                    )
 
                     current_item.execution_id = (
                         execution.id
