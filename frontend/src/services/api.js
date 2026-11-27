@@ -432,10 +432,11 @@ export async function runExecution(
 
 
 export async function getExecution(
+  projectId,
   executionId
 ) {
   const response = await fetch(
-    `${API_BASE_URL}/api/executions/${executionId}`
+    `${API_BASE_URL}/api/executions/project/${projectId}/${executionId}`
   );
 
 
@@ -462,10 +463,11 @@ export async function getExecution(
 }
 
 export async function getExecutionScreenshot(
+  projectId,
   executionId
 ) {
   const response = await fetch(
-    `${API_BASE_URL}/api/executions/${executionId}/evidence/screenshot`
+    `${API_BASE_URL}/api/executions/project/${projectId}/${executionId}/evidence/screenshot`
   );
 
   if (response.status === 404) {
@@ -483,10 +485,11 @@ export async function getExecutionScreenshot(
 
 
 export async function getExecutionTrace(
+  projectId,
   executionId
 ) {
   const response = await fetch(
-    `${API_BASE_URL}/api/executions/${executionId}/evidence/trace`
+    `${API_BASE_URL}/api/executions/project/${projectId}/${executionId}/evidence/trace`
   );
 
   if (response.status === 404) {

@@ -23,6 +23,11 @@ from backend.services.execution_service import (
 from backend.services.execution_runner_service import (
     run_execution,
 )
+from backend.services.project_isolation_service import (
+    ProjectIsolationError,
+    require_automation_in_project,
+    require_execution_in_project,
+)
 
 from backend.db.project_model import (
     ProjectDB,
@@ -295,47 +300,57 @@ def create_execution_endpoint(
 
 
 @router.get(
-    "/{execution_id}",
+    "/project/{project_id}/{execution_id}",
     response_model=ExecutionResponse
 )
 def get_execution_endpoint(
+    project_id: int,
     execution_id: int,
     db: Session = Depends(get_db)
 ):
 
-    execution = get_execution(
-        db,
-        execution_id
-    )
+    try:
+        execution = require_execution_in_project(
+            db,
+            project_id=project_id,
+            execution_id=execution_id
+        )
 
-    if execution is None:
+    except ProjectIsolationError as exc:
         raise HTTPException(
             status_code=404,
             detail="Execution not found"
-        )
+        ) from exc
+
 
     return execution
 
-
 @router.get(
-    "/automation/{automation_script_id}",
+    (
+        "/project/{project_id}/automation/"
+        "{automation_script_id}"
+    ),
     response_model=list[ExecutionResponse]
 )
 def list_automation_executions(
+    project_id: int,
     automation_script_id: int,
     db: Session = Depends(get_db)
 ):
 
-    automation = get_automation_script(
-        db,
-        automation_script_id
-    )
+    try:
+        require_automation_in_project(
+            db,
+            project_id=project_id,
+            automation_id=automation_script_id
+        )
 
-    if automation is None:
+    except ProjectIsolationError as exc:
         raise HTTPException(
             status_code=404,
             detail="Automation script not found"
-        )
+        ) from exc
+
 
     return get_automation_executions(
         db,
@@ -503,24 +518,31 @@ def run_execution_endpoint(
         ) from exc
 
 @router.get(
-    "/{execution_id}/evidence/screenshot",
+    (
+        "/project/{project_id}/{execution_id}/"
+        "evidence/screenshot"
+    ),
     response_class=FileResponse
 )
 def get_execution_screenshot(
+    project_id: int,
     execution_id: int,
     db: Session = Depends(get_db)
 ):
 
-    execution = get_execution(
-        db,
-        execution_id
-    )
+    try:
+        execution = require_execution_in_project(
+            db,
+            project_id=project_id,
+            execution_id=execution_id
+        )
 
-    if execution is None:
+    except ProjectIsolationError as exc:
         raise HTTPException(
             status_code=404,
             detail="Execution not found"
-        )
+        ) from exc
+
 
     screenshot = get_safe_evidence_file(
         execution.screenshot_path
@@ -535,6 +557,7 @@ def get_execution_screenshot(
             )
         )
 
+
     return FileResponse(
         path=str(screenshot),
         media_type="image/png",
@@ -545,24 +568,31 @@ def get_execution_screenshot(
     )
 
 @router.get(
-    "/{execution_id}/evidence/trace",
+    (
+        "/project/{project_id}/{execution_id}/"
+        "evidence/trace"
+    ),
     response_class=FileResponse
 )
 def get_execution_trace(
+    project_id: int,
     execution_id: int,
     db: Session = Depends(get_db)
 ):
 
-    execution = get_execution(
-        db,
-        execution_id
-    )
+    try:
+        execution = require_execution_in_project(
+            db,
+            project_id=project_id,
+            execution_id=execution_id
+        )
 
-    if execution is None:
+    except ProjectIsolationError as exc:
         raise HTTPException(
             status_code=404,
             detail="Execution not found"
-        )
+        ) from exc
+
 
     trace = get_safe_evidence_file(
         execution.trace_path
@@ -572,10 +602,11 @@ def get_execution_trace(
         raise HTTPException(
             status_code=404,
             detail=(
-    "Execution trace "
-    "not available"
-)
+                "Execution trace "
+                "not available"
+            )
         )
+
 
     return FileResponse(
         path=str(trace),
@@ -585,6 +616,7 @@ def get_execution_trace(
             "-trace.zip"
         )
     )
+
 @router.get(
     "/project/{project_id}",
     response_model=list[

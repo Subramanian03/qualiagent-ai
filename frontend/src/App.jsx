@@ -2024,9 +2024,10 @@ setRunningCycleAutomationItemId(
     setError("");
 
     const screenshot =
-      await getExecutionScreenshot(
-        selectedExecution.id
-      );
+  await getExecutionScreenshot(
+    selectedProject.id,
+    selectedExecution.id
+  );
 
     if (!screenshot) {
       setError(
@@ -2067,9 +2068,10 @@ setRunningCycleAutomationItemId(
     setError("");
 
     const trace =
-      await getExecutionTrace(
-        selectedExecution.id
-      );
+  await getExecutionTrace(
+    selectedProject.id,
+    selectedExecution.id
+  );
 
     if (!trace) {
       setError(
@@ -2808,9 +2810,10 @@ setFailureDraftResult(
     setError("");
 
     const screenshot =
-      await getExecutionScreenshot(
-        selectedHistoryExecution.id
-      );
+  await getExecutionScreenshot(
+    selectedProject.id,
+    selectedHistoryExecution.id
+  );
 
     if (!screenshot) {
       setError(
@@ -2853,9 +2856,10 @@ setFailureDraftResult(
     setError("");
 
     const trace =
-      await getExecutionTrace(
-        selectedHistoryExecution.id
-      );
+  await getExecutionTrace(
+    selectedProject.id,
+    selectedHistoryExecution.id
+  );
 
     if (!trace) {
       setError(
@@ -4474,9 +4478,10 @@ function closeCycleAutomationModal() {
 
 
     const execution =
-      await getExecution(
-        item.execution_id
-      );
+  await getExecution(
+    selectedProject.id,
+    item.execution_id
+  );
 
 
     handleViewHistoryExecution(
